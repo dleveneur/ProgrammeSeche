@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Programme Sèche 90 Jours</title>
+    <!-- Chargement de Tailwind CSS pour le style -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* Slate 900 */
+            color: #e2e8f0; /* Light text for dark background */
+        }
+        .container-app {
+            max-width: 1024px;
+            margin: auto;
+            min-height: 100vh;
+            padding-bottom: 40px;
+        }
+        .scroll-container {
+            max-height: 70vh;
+            overflow-y: auto;
+            /* Scrollbar style for dark mode */
+            scrollbar-color: #0d9488 #1e293b;
+            scrollbar-width: thin;
+        }
+        /* Style pour les boutons de tab */
+        .tab-button {
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+        }
+        .tab-button.active {
+            border-color: #22d3ee; /* Cyan 400 */
+            color: #22d3ee;
+            font-weight: 600;
+        }
+        .loading-ring {
+            display: inline-block;
+            width: 24px;
+            height: 24px;
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50%;
+            border-top-color: #22d3ee; /* Cyan */
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, query, orderBy, limit, serverTimestamp, getDoc, updateDoc, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Définition des variables globales (fournies par l'environnement Canvas)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let db, auth, userId;
+        window.appData = {
+            db: null,
+            auth: null,
+            userId: null,
+            isAuthReady: false
+        };
+
+        // Configuration Firestore pour le débogage
+        setLogLevel('Debug');
+
+        // Programme et logiques
+        window.program = {
+            weeklySchedule: {
+                0: 'Repos', // Dimanche
+                1: 'Séance 1', // Lundi
+                2: 'Séance 2', // Mardi
+                3: 'Repos', // Mercredi
+                4: 'Séance 3', // Jeudi
+                5: 'Séance 4', // Vendredi
+                6: 'Séance 5', // Samedi
+            },
+            sessions: {
+                'Séance 1': { 
+                    name: 'Force/Triceps/Abdominaux', 
+                    exercises: [
+                        { name: 'Pompes diamant', sets: '3-4', reps: 'Max', rest: '1\'', prompt: 'Démonstration de Pompes Diamant, gros plan, homme en action' },
+                        { name: 'Pompes serrées pieds surélevés', sets: '3-4', reps: '15', rest: '1\'', prompt: 'Démonstration de Pompes serrées avec pieds surélevés sur un banc' },
+                        { name: 'Gainage commando', sets: '3-4', reps: '15-15', rest: '1\'', prompt: 'Démonstration de Gainage Commando (passage de coudes à mains) en position stable' },
+                        { name: 'Tirages élastiques triceps', sets: '3', reps: 'Échec', rest: '1\'30', prompt: 'Démonstration de Tirage élastique pour les triceps, vue de profil' },
+                        { name: 'Dips sur barre', sets: '3', reps: 'Max', rest: '1\'30', prompt: 'Démonstration de Dips sur barres parallèles' },
+                        { name: 'Aller-retours avec la roue', sets: '3', reps: '20', rest: '1\'30', prompt: 'Démonstration d\'Aller-retour avec la roue abdominale à genoux' },
+                        { name: 'Relevés de jambes sur le banc', sets: '3', reps: '50', rest: '1\'30', prompt: 'Démonstration de Relevés de jambes tendues sur le banc pour abdominaux' },
+                    ]
+                },
+                'Séance 2': { 
+                    name: 'Cardio/Full Body Dynamique', 
+                    exercises: [
+                        { name: 'Tractions dynamiques sans élastiques', sets: '3-4', reps: '15', rest: '1\'30', prompt: 'Démonstration de Tractions dynamiques sur barre, corps entier' },
+                        { name: 'Burpees DB', sets: '3-4', reps: '20', rest: '1\'30', prompt: 'Démonstration d\'un Burpee avec haltères (Burpees DB), développement au-dessus de la tête' },
+                        { name: 'Montées de genoux', sets: '3-4', reps: '30\'\'', rest: '1\'30', prompt: 'Démonstration de Montées de genoux rapides (High Knees) en pleine course' },
+                        { name: 'Pompes avec montées de genoux alternées', sets: '3', reps: '45\'\'', rest: '1\'30', prompt: 'Démonstration de Pompes suivies d\'une Montée de genou alternée' },
+                        { name: 'Battements de jambes tendues', sets: '3', reps: '45\'\'', rest: '1\'30', prompt: 'Démonstration de Battements de jambes tendues au sol pour abdominaux' },
+                        { name: 'Fentes sautées dynamiques', sets: '3', reps: '1\'', rest: '1\'30', prompt: 'Démonstration de Fentes sautées dynamiques (Jumping Lunges)' },
+                        { name: 'Pompes archers', sets: '3', reps: '20', rest: '1\'30', prompt: 'Démonstration de Pompes Archers, fléchissement unilatéral' },
+                    ]
+                },
+                'Séance 3': { 
+                    name: 'Dos/Gainage/Abdominaux', 
+                    exercises: [
+                        { name: 'Tirages 1 bras sur le TRX', sets: '4', reps: '15-15', rest: '2\'', prompt: 'Démonstration de Tirage à un bras sur TRX, dos bien droit' },
+                        { name: 'Pompes + tirage unilatéral haltères', sets: '4', reps: '30 (15-15)', rest: '2\'', prompt: 'Démonstration de Renegade Row (Pompe + Tirage unilatéral avec Haltères)' },
+                        { name: 'Gainage TRX (Avancés de bras)', sets: '4', reps: '45\'\'', rest: '2\'', prompt: 'Démonstration de Gainage TRX dynamique avec avancée des bras' },
+                        { name: 'Superman avec mouvement alterné', sets: '4', reps: '45\'\'', rest: '2\'', prompt: 'Démonstration de Superman (lever bras et jambe opposés)' },
+                        { name: 'Micro va et vient avec la roue', sets: '4', reps: '45\'\'', rest: '2\'', prompt: 'Démonstration de Micro va-et-vient avec la roue abdominale en position de pompe' },
+                        { name: 'Reverse planks rotation', sets: '4', reps: '20-20', rest: '2\'', prompt: 'Démonstration de Reverse Plank avec rotation du bassin' },
+                        { name: 'Sprawls dynamiques', sets: '4', reps: '45\'\'', rest: '2\'', prompt: 'Démonstration de Sprawls dynamiques (Ramener les jambes rapidement après la planche, sans sauter)' },
+                    ]
+                },
+                'Séance 4': { 
+                    name: 'Jambes/Full Body Puissance', 
+                    exercises: [
+                        { name: 'Splits lunges avec développé barre au-dessus de la tête', sets: '4', reps: '20', rest: '1\'30', prompt: 'Démonstration de Fentes (Split Lunges) avec Développé Militaire au-dessus de la tête, barre tenue' },
+                        { name: 'Knee tuck jumps dynamiques', sets: '4', reps: '30\'\'', rest: '1\'30', prompt: 'Démonstration de Knee Tuck Jumps (sauts avec genoux à la poitrine) dynamiques' },
+                        { name: 'Thrusters (Squat + développé militaire)', sets: '4', reps: '45\'\'', rest: '1\'30', prompt: 'Démonstration de Thrusters (Squat + Développé Militaire) avec une barre' },
+                        { name: 'Rotations avec sci model moyen (Orange)', sets: '4', reps: '30-30', rest: '1\'30', prompt: 'Démonstration de Rotations du buste avec résistance (câble ou élastique) pour les obliques, mouvement lent' },
+                        { name: 'Squats 1 jambe (Pistol ou grande amplitude)', sets: '4', reps: '15-15', rest: '1\'30', prompt: 'Démonstration de Pistol Squat assisté (Squat sur une jambe)' },
+                        { name: 'Burpees enchaînés (avec pompes)', sets: '4', reps: '1\'', rest: '1\'30', prompt: 'Démonstration de Burpees complets enchaînés avec pompe' },
+                        { name: 'Chandelles', sets: '4', reps: '30', rest: '1\'30', prompt: 'Démonstration de Chandelles (relevé de bassin vers le haut) pour abdominaux' },
+                    ]
+                },
+                'Séance 5': { 
+                    name: 'Endurance/Full Body Technique', 
+                    exercises: [
+                        { name: 'Tractions avec les étriers', sets: '2-3', reps: 'Max', rest: '1\'30', prompt: 'Démonstration de Tractions lentes sur anneaux ou étriers pour le dos' },
+                        { name: 'L-sit sur étriers', sets: '2-3', reps: '1\'', rest: '1\'30', prompt: 'Démonstration de Maintien L-Sit sur barres parallèles ou étriers' },
+                        { name: 'Squats sautés', sets: '2-3', reps: '45\'\'', rest: '1\'30', prompt: 'Démonstration de Squats Sautés (Jump Squat) rapides' },
+                        { name: 'Curls biceps au TRX', sets: '2-3', reps: '20', rest: '1\'30', prompt: 'Démonstration de Curls Biceps avec le TRX' },
+                        { name: 'Mountain climbers dynamiques', sets: '2-3', reps: '45\'\'', rest: '1\'30', prompt: 'Démonstration de Mountain Climbers dynamiques avec glides sous les pieds' },
+                        { name: 'Rotations au KB ou haltère (Anti-rotations)', sets: '2-3', reps: '45\'\'', rest: '1\'30', prompt: 'Démonstration de Presse Pallof (Anti-Rotation) avec kettlebell ou haltère tenu' },
+                        { name: 'Gainage de face et sur côté (Alterné)', sets: '2-3', reps: '1\'30', rest: '1\'30', prompt: 'Démonstration de Gainage Alterné (Face et Côté) en transition' },
+                    ]
+                }
+            }
+        };
+
+        // --- Fonctions d'aide (Date et Programme) ---
+        function getProgramDay(date) {
+            const startDate = new Date(2025, 10, 3); // Lundi précédent (3 novembre 2025)
+            const diffTime = Math.abs(date - startDate);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            // Le programme est sur 7 jours. La semaine commence le Lundi (jour 1)
+            // Lundi = Séance 1 (J1), Mardi = S2 (J2), Mercredi = Repos (J3), Jeudi = S3 (J4), Vendredi = S4 (J5), Samedi = S5 (J6), Dimanche = Repos (J7).
+            
+            const dayOfWeek = date.getDay(); // 0 (Dim) - 6 (Sam)
+            return window.program.weeklySchedule[dayOfWeek];
+        }
+
+        function formatDate(date) {
+            return date.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+        }
+
+        // --- Logique Firebase ---
+        async function initializeFirebase() {
+            if (!firebaseConfig) {
+                console.error("Firebase config is missing.");
+                document.getElementById('app').innerHTML = `<div class="p-4 bg-red-800 text-white rounded-lg">Erreur: Configuration Firebase manquante. L'application ne peut pas enregistrer de données.</div>`;
+                return;
+            }
+
+            const app = initializeApp(firebaseConfig);
+            db = getFirestore(app);
+            auth = getAuth(app);
+            
+            window.appData.db = db;
+            window.appData.auth = auth;
+
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    userId = user.uid;
+                } else {
+                    try {
+                         // Tentative de connexion avec le token fourni
+                        if (initialAuthToken) {
+                            await signInWithCustomToken(auth, initialAuthToken);
+                        } else {
+                            // Si pas de token, connexion anonyme
+                            await signInAnonymously(auth);
+                        }
+                        userId = auth.currentUser.uid;
+                    } catch (error) {
+                        console.error("Erreur d'authentification:", error);
+                        // Fallback: utiliser un ID aléatoire (les écritures échoueront sans les règles appropriées)
+                        userId = 'anon-' + crypto.randomUUID(); 
+                    }
+                }
+                window.appData.userId = userId;
+                window.appData.isAuthReady = true;
+                console.log("Authentification terminée. User ID:", userId);
+                renderApp();
+            });
+        }
+
+        window.logPerformance = async function(sessionId, exerciseName, setIndex, weight, reps) {
+            if (!window.appData.isAuthReady) {
+                console.error("Authentification non prête.");
+                return;
+            }
+
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const dateKey = today.toISOString().split('T')[0];
+            
+            const logRef = doc(window.appData.db, `artifacts/${appId}/users/${window.appData.userId}/training_logs/${dateKey}`);
+            
+            // Chemin pour le set spécifique
+            const setPath = `sessions.${sessionId}.exercises.${exerciseName}.sets.${setIndex}`;
+
+            try {
+                // Utiliser la fonction pour mettre à jour un champ imbriqué (setPath)
+                await setDoc(logRef, {
+                    sessionId: sessionId,
+                    sessionName: window.program.sessions[sessionId].name,
+                    date: today,
+                    [setPath]: {
+                        weight: parseFloat(weight) || 0,
+                        reps: parseInt(reps) || 0,
+                        timestamp: serverTimestamp()
+                    }
+                }, { merge: true });
+
+            } catch (error) {
+                console.error("Erreur lors de l'enregistrement de la performance :", error);
+            }
+        }
+        
+        // Fonction pour récupérer les logs (pour l'affichage quotidien)
+        window.getDailyLogs = function(dateKey, callback) {
+            if (!window.appData.isAuthReady) return;
+            
+            const logRef = doc(window.appData.db, `artifacts/${appId}/users/${window.appData.userId}/training_logs/${dateKey}`);
+            
+            // onSnapshot permet d'écouter les changements en temps réel
+            onSnapshot(logRef, (doc) => {
+                if (doc.exists()) {
+                    callback(doc.data().sessions || {});
+                } else {
+                    callback({});
+                }
+            }, (error) => {
+                console.error("Erreur de récupération des logs:", error);
+                callback({});
+            });
+        }
+        
+        // --- Logique de rendu ---
+        window.renderApp = function() {
+            if (!window.appData.isAuthReady) {
+                document.getElementById('app').innerHTML = `
+                    <div class="flex justify-center items-center h-48">
+                        <span class="loading-ring"></span>
+                        <p class="ml-3 text-gray-400">Chargement de l'application et de l'authentification...</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Initialisation de l'état de l'application
+            window.state = {
+                activeTab: 'today', // 'today' ou 'calendar'
+                today: new Date(),
+                todayDateKey: new Date().toISOString().split('T')[0]
+            };
+            
+            // Rendre le composant principal
+            document.getElementById('app').innerHTML = `
+                <div class="container-app p-4">
+                    <h1 class="text-4xl font-extrabold text-center text-cyan-400 my-6 tracking-wide">FITNESS 90 Jours</h1>
+                    <div class="text-xs text-center text-gray-500 mb-4">ID Utilisateur: ${window.appData.userId}</div>
+
+                    <!-- Navigation par Onglets -->
+                    <div class="flex justify-center border-b border-slate-700 mb-6">
+                        <div id="tab-today-button" class="tab-button p-4 text-slate-400 active" onclick="switchTab('today')">
+                            SÉANCE DU JOUR
+                        </div>
+                        <div id="tab-calendar-button" class="tab-button p-4 text-slate-400" onclick="switchTab('calendar')">
+                            CALENDRIER COMPLET
+                        </div>
+                    </div>
+
+                    <!-- Contenu des Onglets -->
+                    <div id="content-today"></div>
+                    <div id="content-calendar" class="hidden"></div>
+                </div>
+            `;
+            
+            window.switchTab = function(tab) {
+                window.state.activeTab = tab;
+                document.getElementById('content-today').classList.toggle('hidden', tab !== 'today');
+                document.getElementById('content-calendar').classList.toggle('hidden', tab !== 'calendar');
+                
+                document.getElementById('tab-today-button').classList.toggle('active', tab === 'today');
+                document.getElementById('tab-calendar-button').classList.toggle('active', tab === 'calendar');
+                
+                if (tab === 'today') {
+                    renderTodayView();
+                } else {
+                    renderCalendarView();
+                }
+            }
+            
+            renderTodayView(); // Rendre l'onglet par défaut
+        }
+
+        // --- Vues Spécifiques ---
+
+        function renderTodayView() {
+            const today = window.state.today;
+            const sessionName = getProgramDay(today);
+            const session = window.program.sessions[sessionName];
+
+            let htmlContent = `
+                <div class="bg-slate-800 p-6 rounded-2xl shadow-2xl border border-slate-700">
+                    <h2 class="text-xl font-light text-slate-400">${formatDate(today)}</h2>
+                    <p class="text-3xl font-bold mt-2 mb-4">
+                        ${sessionName === 'Repos' ? 'Jour de Repos Actif' : 'Séance à réaliser :'} 
+                        <span class="${sessionName === 'Repos' ? 'text-red-400' : 'text-cyan-400'} block text-2xl font-extrabold mt-1">
+                            ${sessionName} (${session ? session.name : 'RÉCUPÉRATION'})
+                        </span>
+                    </p>
+                    ${sessionName === 'Repos' ? `
+                        <div class="p-4 bg-slate-700 text-gray-300 rounded-xl mt-4 border border-slate-600">
+                            Prenez le temps de récupérer, la progression continue même au repos !
+                        </div>
+                    ` : `
+                        <p class="text-slate-400 mb-6 mt-4">Enregistrez vos performances ci-dessous. Les données sont sauvegardées automatiquement pour suivre votre progression.</p>
+                        <div id="session-tracker" class="scroll-container space-y-6">
+                            ${renderSessionTracker(sessionName, session)}
+                        </div>
+                    `}
+                </div>
+            `;
+            document.getElementById('content-today').innerHTML = htmlContent;
+            
+            // Attacher l'écouteur de logs pour la vue du jour
+            if (sessionName !== 'Repos') {
+                 window.getDailyLogs(window.state.todayDateKey, (logs) => {
+                    window.currentLogs = logs;
+                    // Mettre à jour l'affichage avec les logs récupérés
+                    document.getElementById('session-tracker').innerHTML = renderSessionTracker(sessionName, session);
+                });
+            }
+        }
+
+        function renderSessionTracker(sessionId, session) {
+            if (!session || !session.exercises) return '';
+            
+            let html = '';
+            const sessionLogs = window.currentLogs && window.currentLogs[sessionId] ? window.currentLogs[sessionId].exercises : {};
+
+            session.exercises.forEach((exo, exoIndex) => {
+                const exoLogs = sessionLogs[exo.name] ? sessionLogs[exo.name].sets : {};
+                
+                // Calcul du nombre maximum de sets à afficher (gère "3-4" -> 4 sets)
+                const allNums = Array.from(exo.sets.matchAll(/(\d+)/g)).map(m => parseInt(m[1], 10));
+                // Prendre le nombre de sets le plus élevé ou 3 par défaut.
+                const numSets = allNums.length > 0 ? Math.max(...allNums) : 3; 
+
+                html += `
+                    <div class="bg-slate-700 p-4 rounded-xl shadow-lg border border-slate-600 transition duration-300 hover:shadow-cyan-500/30">
+                        <div class="flex justify-between items-start">
+                            <h3 class="text-lg font-bold text-white">${exoIndex + 1}. ${exo.name}</h3>
+                            <button onclick="window.toggleImage('img-${sessionId}-${exoIndex}', '${exo.prompt}')"
+                                class="text-xs px-3 py-1 bg-cyan-600 text-white font-medium rounded-full hover:bg-cyan-500 transition duration-150 shadow-md">
+                                Voir l'Exo
+                            </button>
+                        </div>
+                        <p class="text-xs text-slate-400 mt-1 mb-3">Séries: <span class="font-semibold">${exo.sets}</span> | Rép: <span class="font-semibold">${exo.reps}</span> | Repos: <span class="font-semibold">${exo.rest}</span></p>
+                        
+                        <div id="img-${sessionId}-${exoIndex}" class="mt-3 hidden">
+                            <div class="flex justify-center items-center h-48 bg-slate-600 rounded-lg" id="img-placeholder-${sessionId}-${exoIndex}">
+                                <p class="text-slate-400">Cliquez sur 'Voir l'Exo' pour générer l'image.</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Logique des sets (Séparée par série) -->
+                        <div class="mt-4 space-y-2">
+                            ${Array.from({ length: numSets }).map((_, setIndex) => {
+                                const log = exoLogs[setIndex.toString()] || {};
+                                return `
+                                    <div class="flex items-center space-x-2 bg-slate-800 p-2 rounded-md border border-slate-600">
+                                        <span class="font-medium text-cyan-400 w-12 flex-shrink-0">Set ${setIndex + 1}:</span>
+                                        
+                                        <label for="weight-${sessionId}-${exoIndex}-${setIndex}" class="text-sm text-slate-400 sr-only">Poids (kg):</label>
+                                        <input type="number" 
+                                            placeholder="kg" 
+                                            class="w-1/4 p-1 border rounded-lg bg-slate-900 text-white border-slate-600 focus:ring-cyan-500 focus:border-cyan-500 text-sm"
+                                            id="weight-${sessionId}-${exoIndex}-${setIndex}"
+                                            value="${log.weight || ''}"
+                                            onchange="window.logPerformance('${sessionId}', '${exo.name}', '${setIndex}', this.value, document.getElementById('reps-${sessionId}-${exoIndex}-${setIndex}').value)"
+                                            min="0"
+                                        />
+                                        
+                                        <label for="reps-${sessionId}-${exoIndex}-${setIndex}" class="text-sm text-slate-400 sr-only">Reps:</label>
+                                        <input type="number" 
+                                            placeholder="Reps" 
+                                            class="w-1/4 p-1 border rounded-lg bg-slate-900 text-white border-slate-600 focus:ring-cyan-500 focus:border-cyan-500 text-sm"
+                                            id="reps-${sessionId}-${exoIndex}-${setIndex}"
+                                            value="${log.reps || ''}"
+                                            onchange="window.logPerformance('${sessionId}', '${exo.name}', '${setIndex}', document.getElementById('weight-${sessionId}-${exoIndex}-${setIndex}').value, this.value)"
+                                            min="0"
+                                        />
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+            return html;
+        }
+
+
+        function renderCalendarView() {
+            const today = new Date();
+            const days = [];
+            const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+
+            // Calculer les 90 jours
+            for (let i = 0; i < 90; i++) {
+                const date = new Date(today);
+                date.setDate(today.getDate() + i);
+                const sessionName = getProgramDay(date);
+                days.push({
+                    date: date,
+                    dayName: dayNames[date.getDay()],
+                    session: sessionName,
+                    isToday: i === 0
+                });
+            }
+
+            let htmlContent = `
+                <div class="bg-slate-800 p-6 rounded-2xl shadow-2xl border border-slate-700">
+                    <h2 class="text-2xl font-bold text-cyan-400 mb-4">Planning Jours + 90</h2>
+                    <div class="grid grid-cols-7 gap-1 text-center font-bold text-sm bg-slate-700 p-2 rounded-t-lg sticky top-0 z-10">
+                        ${dayNames.map(d => `<div class="text-slate-300">${d}</div>`).join('')}
+                    </div>
+                    <div class="grid grid-cols-7 gap-1 text-xs pt-1">
+                        ${days.map(day => `
+                            <div class="p-1 rounded-lg border 
+                                ${day.isToday ? 'bg-cyan-600 text-white shadow-lg font-extrabold border-cyan-400' : 'bg-slate-700 border-slate-600'} 
+                                ${day.session === 'Repos' && !day.isToday ? 'bg-red-900/40 text-red-300' : (day.session !== 'Repos' && !day.isToday ? 'bg-green-900/40 text-green-300' : '')}
+                                ">
+                                <div class="font-bold">${day.date.getDate()}/${day.date.getMonth() + 1}</div>
+                                <div class="text-[10px] ${day.isToday ? 'text-white' : 'text-slate-400 font-medium'} leading-tight mt-0.5">${day.session}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+            document.getElementById('content-calendar').innerHTML = htmlContent;
+        }
+
+
+        // --- Logique d'image Gemini API ---
+
+        // Masquer/Afficher l'image. Si masquée, elle est effacée.
+        window.toggleImage = function(containerId, prompt) {
+            const container = document.getElementById(containerId);
+            const placeholder = document.getElementById(`img-placeholder-${containerId.split('-').slice(2).join('-')}`);
+
+            if (container.classList.contains('hidden')) {
+                container.classList.remove('hidden');
+                placeholder.innerHTML = `<div class="flex flex-col items-center justify-center h-full"><span class="loading-ring"></span><p class="mt-3 text-slate-400">Génération de l'image...</p></div>`;
+                window.generateImage(prompt, placeholder);
+            } else {
+                container.classList.add('hidden');
+                placeholder.innerHTML = `<p class="text-slate-400">Cliquez sur 'Voir l'Exo' pour générer l'image.</p>`;
+            }
+        };
+
+
+        let isImageGenerating = false;
+        const IMAGE_MODEL_URL = 'https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=';
+        const apiKey = ""; // La clé sera fournie par l'environnement Canvas
+
+        window.generateImage = async function(userPrompt, placeholderElement) {
+            if (isImageGenerating) {
+                placeholderElement.innerHTML = `<p class="text-yellow-400">Veuillez attendre que l'image précédente soit générée.</p>`;
+                return;
+            }
+
+            // Prompt de base pour un style d'entraînement réaliste
+            const fullPrompt = `Une photo haute définition d'un athlète exécutant parfaitement l'exercice: ${userPrompt}. Style de photographie de guide de fitness, clair et sans distorsion, éclairage dramatique de salle de sport.`;
+
+            placeholderElement.innerHTML = `<div class="flex flex-col items-center justify-center h-full"><span class="loading-ring"></span><p class="mt-3 text-slate-400">Génération de l'image...</p></div>`;
+            isImageGenerating = true;
+
+            const payload = {
+                instances: [{ prompt: fullPrompt }],
+                parameters: { "sampleCount": 1 }
+            };
+
+            const maxRetries = 5;
+            let attempt = 0;
+
+            while (attempt < maxRetries) {
+                try {
+                    const response = await fetch(IMAGE_MODEL_URL + apiKey, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    
+                    const result = await response.json();
+
+                    if (result.predictions && result.predictions.length > 0 && result.predictions[0].bytesBase64Encoded) {
+                        const base64Data = result.predictions[0].bytesBase64Encoded;
+                        const imageUrl = `data:image/png;base64,${base64Data}`;
+                        // Remplacer le placeholder par l'image
+                        placeholderElement.innerHTML = `<img src="${imageUrl}" class="w-full h-full object-contain rounded-lg" alt="Illustration de l'exercice">`;
+                        // Ajuster le fond du conteneur parent pour qu'il soit transparent et laisser l'image s'afficher
+                        placeholderElement.classList.remove('bg-slate-600'); 
+                        return; // Succès
+                    } else {
+                        throw new Error('Aucune donnée d\'image valide reçue.');
+                    }
+                } catch (error) {
+                    console.error(`Erreur d'API (Tentative ${attempt + 1}):`, error);
+                    attempt++;
+                    if (attempt < maxRetries) {
+                        const delay = Math.pow(2, attempt) * 1000; // Backoff exponentiel
+                        placeholderElement.innerHTML = `<div class="flex flex-col items-center justify-center h-full"><span class="loading-ring"></span><p class="mt-3 text-red-400">Erreur, nouvelle tentative dans ${delay / 1000}s...</p></div>`;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    } else {
+                        placeholderElement.innerHTML = `<p class="text-red-400">Erreur de génération d'image après plusieurs tentatives. Veuillez réessayer plus tard.</p>`;
+                        return; // Échec
+                    }
+                } finally {
+                    if (attempt >= maxRetries || (result && result.predictions && result.predictions.length > 0)) {
+                        isImageGenerating = false;
+                    }
+                }
+            }
+        }
+
+
+        // Démarrage de l'application
+        window.onload = initializeFirebase;
+
+    </script>
+</head>
+<body>
+    <div id="app" class="container-app">
+        <!-- Contenu de chargement initial -->
+        <div class="flex justify-center items-center h-screen">
+            <div class="loading-ring"></div>
+            <p class="ml-3 text-gray-400">Chargement...</p>
+        </div>
+    </div>
+</body>
+</html>
