@@ -95,6 +95,9 @@
         };
 
         // Programme et logiques
+        // Chaque séance contient des "blocks" (super-sets ou circuits)
+        // Chaque block a ses sets et son temps de repos après le block.
+        // Les exercices individuels sont des "subExercises" dans le block.
         window.program = {
             weeklySchedule: {
                 0: 'Repos', // Dimanche
@@ -108,62 +111,152 @@
             sessions: {
                 'Séance 1': { 
                     name: 'Force/Triceps/Abdominaux', 
-                    exercises: [
-                        { name: 'Pompes diamant', sets: '3-4', reps: 'Max', rest: '1\'', prompt: 'Démonstration de Pompes Diamant, gros plan, homme en action' },
-                        { name: 'Pompes serrées pieds surélevés', sets: '3-4', reps: '15', rest: '1\'', prompt: 'Démonstration de Pompes serrées avec pieds surélevés sur un banc' },
-                        { name: 'Gainage commando', sets: '3-4', reps: '15-15', rest: '1\'', prompt: 'Démonstration de Gainage Commando (passage de coudes à mains) en position stable' },
-                        { name: 'Tirages élastiques triceps', sets: '3', reps: 'Échec', rest: '1\'30', prompt: 'Démonstration de Tirage élastique pour les triceps, vue de profil' },
-                        { name: 'Dips sur barre', sets: '3', reps: 'Max', rest: '1\'30', prompt: 'Démonstration de Dips sur barres parallèles' },
-                        { name: 'Aller-retours avec la roue', sets: '3', reps: '20', rest: '1\'30', prompt: 'Démonstration d\'Aller-retour avec la roue abdominale à genoux' },
-                        { name: 'Relevés de jambes sur le banc', sets: '3', reps: '50', rest: '1\'30', prompt: 'Démonstration de Relevés de jambes tendues sur le banc pour abdominaux' },
+                    blocks: [
+                        { // BLOCK 1: Force/Push Super-set
+                            sets: '3-4', 
+                            rest: '1\'', 
+                            subExercises: [
+                                { name: 'Pompes diamant', reps: 'Max', prompt: 'Démonstration de Pompes Diamant, gros plan, homme en action', imgUrl: '' },
+                                { name: 'Pompes serrées pieds surélevés', reps: '15', prompt: 'Démonstration de Pompes serrées avec pieds surélevés sur un banc', imgUrl: '' },
+                            ]
+                        },
+                        { // BLOCK 2: Triceps/Dips Super-set
+                            sets: '3', 
+                            rest: '1\'30', 
+                            subExercises: [
+                                { name: 'Tirages élastiques triceps', reps: 'Échec', prompt: 'Démonstration de Tirage élastique pour les triceps, vue de profil', imgUrl: '' },
+                                { name: 'Dips sur barre', reps: 'Max', prompt: 'Démonstration de Dips sur barres parallèles', imgUrl: '' },
+                            ]
+                        },
+                        { // BLOCK 3: Core Circuit
+                            sets: '3', 
+                            rest: '1\'30', 
+                            subExercises: [
+                                { name: 'Gainage commando', reps: '15-15', prompt: 'Démonstration de Gainage Commando (passage de coudes à mains) en position stable', imgUrl: '' },
+                                { name: 'Aller-retours avec la roue', reps: '20', prompt: 'Démonstration d\'Aller-retour avec la roue abdominale à genoux', imgUrl: '' },
+                                { name: 'Relevés de jambes sur le banc', reps: '50', prompt: 'Démonstration de Relevés de jambes tendues sur le banc pour abdominaux', imgUrl: '' },
+                            ]
+                        },
                     ]
                 },
                 'Séance 2': { 
                     name: 'Cardio/Full Body Dynamique', 
-                    exercises: [
-                        { name: 'Tractions dynamiques sans élastiques', sets: '3-4', reps: '15', rest: '1\'30', prompt: 'Démonstration de Tractions dynamiques sur barre, corps entier' },
-                        { name: 'Burpees DB', sets: '3-4', reps: '20', rest: '1\'30', prompt: 'Démonstration d\'un Burpee avec haltères (Burpees DB), développement au-dessus de la tête' },
-                        { name: 'Montées de genoux', sets: '3-4', reps: '30\'\'', rest: '1\'30', prompt: 'Démonstration de Montées de genoux rapides (High Knees) en pleine course' },
-                        { name: 'Pompes avec montées de genoux alternées', sets: '3', reps: '45\'\'', rest: '1\'30', prompt: 'Démonstration de Pompes suivies d\'une Montée de genou alternée' },
-                        { name: 'Battements de jambes tendues', sets: '3', reps: '45\'\'', rest: '1\'30', prompt: 'Démonstration de Battements de jambes tendues au sol pour abdominaux' },
-                        { name: 'Fentes sautées dynamiques', sets: '3', reps: '1\'', rest: '1\'30', prompt: 'Démonstration de Fentes sautées dynamiques (Jumping Lunges)' },
-                        { name: 'Pompes archers', sets: '3', reps: '20', rest: '1\'30', prompt: 'Démonstration de Pompes Archers, fléchissement unilatéral' },
+                    blocks: [
+                        { // BLOCK 1: Cardio Power Super-set
+                            sets: '3-4', 
+                            rest: '1\'30', 
+                            subExercises: [
+                                { name: 'Tractions dynamiques sans élastiques', reps: '15', prompt: 'Démonstration de Tractions dynamiques sur barre, corps entier', imgUrl: '' },
+                                { name: 'Burpees DB', reps: '20', prompt: 'Démonstration d\'un Burpee avec haltères (Burpees DB), développement au-dessus de la tête', imgUrl: '' },
+                            ]
+                        },
+                        { // BLOCK 2: Cardio Endurance Super-set
+                            sets: '3-4', 
+                            rest: '1\'30', 
+                            subExercises: [
+                                { name: 'Montées de genoux', reps: '30\'\'', prompt: 'Démonstration de Montées de genoux rapides (High Knees) en pleine course', imgUrl: '' },
+                                { name: 'Fentes sautées dynamiques', reps: '1\'', prompt: 'Démonstration de Fentes sautées dynamiques (Jumping Lunges)', imgUrl: '' },
+                            ]
+                        },
+                        { // BLOCK 3: Push/Core Circuit
+                            sets: '3', 
+                            rest: '1\'30', 
+                            subExercises: [
+                                { name: 'Pompes avec montées de genoux alternées', reps: '45\'\'', prompt: 'Démonstration de Pompes suivies d\'une Montée de genou alternée', imgUrl: '' },
+                                { name: 'Pompes archers', reps: '20', prompt: 'Démonstration de Pompes Archers, fléchissement unilatéral', imgUrl: '' },
+                                { name: 'Battements de jambes tendues', reps: '45\'\'', prompt: 'Démonstration de Battements de jambes tendues au sol pour abdominaux', imgUrl: '' },
+                            ]
+                        },
                     ]
                 },
                 'Séance 3': { 
                     name: 'Dos/Gainage/Abdominaux', 
-                    exercises: [
-                        { name: 'Tirages 1 bras sur le TRX', sets: '4', reps: '15-15', rest: '2\'', prompt: 'Démonstration de Tirage à un bras sur TRX, dos bien droit' },
-                        { name: 'Pompes + tirage unilatéral haltères', sets: '4', reps: '30 (15-15)', rest: '2\'', prompt: 'Démonstration de Renegade Row (Pompe + Tirage unilatéral avec Haltères)' },
-                        { name: 'Gainage TRX (Avancés de bras)', sets: '4', reps: '45\'\'', rest: '2\'', prompt: 'Démonstration de Gainage TRX dynamique avec avancée des bras' },
-                        { name: 'Superman avec mouvement alterné', sets: '4', reps: '45\'\'', rest: '2\'', prompt: 'Démonstration de Superman (lever bras et jambe opposés)' },
-                        { name: 'Micro va et vient avec la roue', sets: '4', reps: '45\'\'', rest: '2\'', prompt: 'Démonstration de Micro va-et-vient avec la roue abdominale en position de pompe' },
-                        { name: 'Reverse planks rotation', sets: '4', reps: '20-20', rest: '2\'', prompt: 'Démonstration de Reverse Plank avec rotation du bassin' },
-                        { name: 'Sprawls dynamiques', sets: '4', reps: '45\'\'', rest: '2\'', prompt: 'Démonstration de Sprawls dynamiques (Ramener les jambes rapidement après la planche, sans sauter)' },
+                    blocks: [
+                        { // BLOCK 1: Back Super-set
+                            sets: '4', 
+                            rest: '2\'', 
+                            subExercises: [
+                                { name: 'Tirages 1 bras sur le TRX', reps: '15-15', prompt: 'Démonstration de Tirage à un bras sur TRX, dos bien droit', imgUrl: '' },
+                                { name: 'Pompes + tirage unilatéral haltères', reps: '30 (15-15)', prompt: 'Démonstration de Renegade Row (Pompe + Tirage unilatéral avec Haltères)', imgUrl: '' },
+                            ]
+                        },
+                        { // BLOCK 2: Dynamic Core Super-set
+                            sets: '4', 
+                            rest: '2\'', 
+                            subExercises: [
+                                { name: 'Gainage TRX (Avancés de bras)', reps: '45\'\'', prompt: 'Démonstration de Gainage TRX dynamique avec avancée des bras', imgUrl: '' },
+                                { name: 'Superman avec mouvement alterné', reps: '45\'\'', prompt: 'Démonstration de Superman (lever bras et jambe opposés)', imgUrl: '' },
+                            ]
+                        },
+                        { // BLOCK 3: Rotation/Endurance Core Circuit
+                            sets: '4', 
+                            rest: '2\'', 
+                            subExercises: [
+                                { name: 'Micro va et vient avec la roue', reps: '45\'\'', prompt: 'Démonstration de Micro va-et-vient avec la roue abdominale en position de pompe', imgUrl: '' },
+                                { name: 'Reverse planks rotation', reps: '20-20', prompt: 'Démonstration de Reverse Plank avec rotation du bassin', imgUrl: '' },
+                                { name: 'Sprawls dynamiques', reps: '45\'\'', prompt: 'Démonstration de Sprawls dynamiques (Ramener les jambes rapidement après la planche, sans sauter)', imgUrl: '' },
+                            ]
+                        },
                     ]
                 },
                 'Séance 4': { 
                     name: 'Jambes/Full Body Puissance', 
-                    exercises: [
-                        { name: 'Splits lunges avec développé barre au-dessus de la tête', sets: '4', reps: '20', rest: '1\'30', prompt: 'Démonstration de Fentes (Split Lunges) avec Développé Militaire au-dessus de la tête, barre tenue' },
-                        { name: 'Knee tuck jumps dynamiques', sets: '4', reps: '30\'\'', rest: '1\'30', prompt: 'Démonstration de Knee Tuck Jumps (sauts avec genoux à la poitrine) dynamiques' },
-                        { name: 'Thrusters (Squat + développé militaire)', sets: '4', reps: '45\'\'', rest: '1\'30', prompt: 'Démonstration de Thrusters (Squat + Développé Militaire) avec une barre' },
-                        { name: 'Rotations avec sci model moyen (Orange)', sets: '4', reps: '30-30', rest: '1\'30', prompt: 'Démonstration de Rotations du buste avec résistance (câble ou élastique) pour les obliques, mouvement lent' },
-                        { name: 'Squats 1 jambe (Pistol ou grande amplitude)', sets: '4', reps: '15-15', rest: '1\'30', prompt: 'Démonstration de Pistol Squat assisté (Squat sur une jambe)' },
-                        { name: 'Burpees enchaînés (avec pompes)', sets: '4', reps: '1\'', rest: '1\'30', prompt: 'Démonstration de Burpees complets enchaînés avec pompe' },
-                        { name: 'Chandelles', sets: '4', reps: '30', rest: '1\'30', prompt: 'Démonstration de Chandelles (relevé de bassin vers le haut) pour abdominaux' },
+                    blocks: [
+                        { // BLOCK 1: Leg Power Super-set
+                            sets: '4', 
+                            rest: '1\'30', 
+                            subExercises: [
+                                { name: 'Splits lunges avec développé barre au-dessus de la tête', reps: '20', prompt: 'Démonstration de Fentes (Split Lunges) avec Développé Militaire au-dessus de la tête, barre tenue', imgUrl: '' },
+                                { name: 'Thrusters (Squat + développé militaire)', reps: '45\'\'', prompt: 'Démonstration de Thrusters (Squat + Développé Militaire) avec une barre', imgUrl: '' },
+                            ]
+                        },
+                        { // BLOCK 2: Explosive Legs
+                            sets: '4', 
+                            rest: '1\'30', 
+                            subExercises: [
+                                { name: 'Knee tuck jumps dynamiques', reps: '30\'\'', prompt: 'Démonstration de Knee Tuck Jumps (sauts avec genoux à la poitrine) dynamiques', imgUrl: '' },
+                                { name: 'Burpees enchaînés (avec pompes)', reps: '1\'', prompt: 'Démonstration de Burpees complets enchaînés avec pompe', imgUrl: '' },
+                            ]
+                        },
+                        { // BLOCK 3: Unilateral/Core Circuit
+                            sets: '4', 
+                            rest: '1\'30', 
+                            subExercises: [
+                                { name: 'Rotations avec sci model moyen (Orange)', reps: '30-30', prompt: 'Démonstration de Rotations du buste avec résistance (câble ou élastique) pour les obliques, mouvement lent', imgUrl: '' },
+                                { name: 'Squats 1 jambe (Pistol ou grande amplitude)', reps: '15-15', prompt: 'Démonstration de Pistol Squat assisté (Squat sur une jambe)', imgUrl: '' },
+                                { name: 'Chandelles', reps: '30', prompt: 'Démonstration de Chandelles (relevé de bassin vers le haut) pour abdominaux', imgUrl: '' },
+                            ]
+                        },
                     ]
                 },
                 'Séance 5': { 
                     name: 'Endurance/Full Body Technique', 
-                    exercises: [
-                        { name: 'Tractions avec les étriers', sets: '2-3', reps: 'Max', rest: '1\'30', prompt: 'Démonstration de Tractions lentes sur anneaux ou étriers pour le dos' },
-                        { name: 'L-sit sur étriers', sets: '2-3', reps: '1\'', rest: '1\'30', prompt: 'Démonstration de Maintien L-Sit sur barres parallèles ou étriers' },
-                        { name: 'Squats sautés', sets: '2-3', reps: '45\'\'', rest: '1\'30', prompt: 'Démonstration de Squats Sautés (Jump Squat) rapides' },
-                        { name: 'Curls biceps au TRX', sets: '2-3', reps: '20', rest: '1\'30', prompt: 'Démonstration de Curls Biceps avec le TRX' },
-                        { name: 'Mountain climbers dynamiques', sets: '2-3', reps: '45\'\'', rest: '1\'30', prompt: 'Démonstration de Mountain Climbers dynamiques avec glides sous les pieds' },
-                        { name: 'Rotations au KB ou haltère (Anti-rotations)', sets: '2-3', reps: '45\'\'', rest: '1\'30', prompt: 'Démonstration de Presse Pallof (Anti-Rotation) avec kettlebell ou haltère tenu' },
-                        { name: 'Gainage de face et sur côté (Alterné)', sets: '2-3', reps: '1\'30', rest: '1\'30', prompt: 'Démonstration de Gainage Alterné (Face et Côté) en transition' },
+                    blocks: [
+                        { // BLOCK 1: Back/Hold Super-set
+                            sets: '2-3', 
+                            rest: '1\'30', 
+                            subExercises: [
+                                { name: 'Tractions avec les étriers', reps: 'Max', prompt: 'Démonstration de Tractions lentes sur anneaux ou étriers pour le dos', imgUrl: '' },
+                                { name: 'L-sit sur étriers', reps: '1\'', prompt: 'Démonstration de Maintien L-Sit sur barres parallèles ou étriers', imgUrl: '' },
+                            ]
+                        },
+                        { // BLOCK 2: Cardio/Biceps Super-set
+                            sets: '2-3', 
+                            rest: '1\'30', 
+                            subExercises: [
+                                { name: 'Squats sautés', reps: '45\'\'', prompt: 'Démonstration de Squats Sautés (Jump Squat) rapides', imgUrl: '' },
+                                { name: 'Curls biceps au TRX', reps: '20', prompt: 'Démonstration de Curls Biceps avec le TRX', imgUrl: '' },
+                            ]
+                        },
+                        { // BLOCK 3: Core Endurance Circuit
+                            sets: '2-3', 
+                            rest: '1\'30', 
+                            subExercises: [
+                                { name: 'Mountain climbers dynamiques', reps: '45\'\'', prompt: 'Démonstration de Mountain Climbers dynamiques avec glides sous les pieds', imgUrl: '' },
+                                { name: 'Rotations au KB ou haltère (Anti-rotations)', reps: '45\'\'', prompt: 'Démonstration de Presse Pallof (Anti-Rotation) avec kettlebell ou haltère tenu', imgUrl: '' },
+                                { name: 'Gainage de face et sur côté (Alterné)', reps: '1\'30', prompt: 'Démonstration de Gainage Alterné (Face et Côté) en transition', imgUrl: '' },
+                            ]
+                        },
                     ]
                 }
             }
@@ -201,6 +294,7 @@
         }
 
         // Fonction de sauvegarde réelle (interne) pour le statut Fait/Pas Fait
+        // Utilise le nom du sous-exercice comme clé, ce qui est unique au sein de la session
         window._toggleExerciseDone = function(sessionId, exerciseName, isDone) {
             const today = window.state.today;
             // IMPORTANT : Utiliser un clone pour ne pas altérer l'objet date dans l'état
@@ -217,7 +311,7 @@
             if (!dailyLogs.sessions[sessionId]) {
                 dailyLogs.sessions[sessionId] = { 
                     sessionName: window.program.sessions[sessionId].name,
-                    exercises: {} 
+                    exercises: {} // Les logs utilisent le nom de l'exercice/sous-exercice comme clé
                 };
             }
 
@@ -374,7 +468,7 @@
                             Prenez le temps de récupérer, la progression continue même au repos !
                         </div>
                     ` : `
-                        <p class="text-slate-400 mb-6 mt-4">Cochez les exercices que vous avez complétés pour les marquer comme **FAIT**.</p>
+                        <p class="text-slate-400 mb-6 mt-4">Cochez les sous-exercices complétés. Chaque bloc représente un super-set/circuit.</p>
                         <div id="session-tracker" class="scroll-container space-y-6">
                             <!-- Sera rempli par renderSessionTracker après la récupération des logs -->
                             <div class="flex justify-center items-center h-24">
@@ -393,73 +487,104 @@
         }
 
         function renderSessionTracker(sessionId, session) {
-            if (!session || !session.exercises) return '';
+            // Utilise la nouvelle structure: session.blocks
+            if (!session || !session.blocks) return '';
             
             let html = '';
             // Utilise window.currentLogs qui est mis à jour par attachLocalListener
             const sessionLogs = window.currentLogs && window.currentLogs[sessionId] ? window.currentLogs[sessionId].exercises : {};
 
-            session.exercises.forEach((exo, exoIndex) => {
-                // Logique de récupération simplifiée: cherche directement le statut isDone
-                const isDone = sessionLogs[exo.name] ? !!sessionLogs[exo.name].isDone : false;
-                
-                // Le handler simple appelle debouncedToggleDone avec le nouveau statut
-                const onChangeHandler = `window.debouncedToggleDone('${sessionId}', '${exo.name}', this.checked)`;
+            session.blocks.forEach((block, blockIndex) => {
+                // Début du bloc (Super-Set/Circuit)
+                html += `
+                    <div class="bg-slate-700 p-4 rounded-xl shadow-lg border border-slate-600 transition duration-300 hover:shadow-cyan-500/30">
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-slate-600 pb-2 mb-3">
+                            <h3 class="text-xl font-extrabold text-cyan-300">
+                                Bloc ${blockIndex + 1}
+                            </h3>
+                            <p class="text-sm text-slate-400 font-semibold mt-1 sm:mt-0">
+                                Séries: <span class="text-white">${block.sets}</span> | Repos (Bloc): <span class="text-white">${block.rest}</span>
+                            </p>
+                        </div>
+                        
+                        <div class="space-y-4">
+                `;
+
+                // Itération sur les sous-exercices dans le bloc
+                block.subExercises.forEach((subExo, subExoIndex) => {
+                    // Logique de récupération: cherche le statut par nom du sous-exercice
+                    const isDone = sessionLogs[subExo.name] ? !!sessionLogs[subExo.name].isDone : false;
+                    
+                    // Le handler utilise le nom du sous-exercice comme clé unique dans le log
+                    const onChangeHandler = `window.debouncedToggleDone('${sessionId}', '${subExo.name}', this.checked)`;
+                    const imageContainerId = `img-${sessionId}-${blockIndex}-${subExoIndex}`;
+                    const placeholderId = `img-placeholder-${sessionId}-${blockIndex}-${subExoIndex}`;
+
+
+                    html += `
+                        <div class="pl-2 border-l-4 ${isDone ? 'border-green-500' : 'border-slate-500'} transition duration-300">
+                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center">
+                                <h4 class="text-lg font-medium ${isDone ? 'text-green-300 line-through' : 'text-white'}">
+                                    ${subExoIndex + 1}. ${subExo.name}
+                                </h4>
+                                
+                                <div class="flex items-center space-x-3 mt-2 sm:mt-0">
+                                    <!-- Répétitions/Durée spécifiques au sous-exercice -->
+                                    <p class="text-sm text-slate-400 font-medium">
+                                        Rép: <span class="font-semibold text-white">${subExo.reps}</span>
+                                    </p>
+
+                                    <!-- Contrôle Fait/Non Fait -->
+                                    <div class="flex items-center">
+                                        <label for="done-${sessionId}-${subExo.name.replace(/\s/g, '-')}" class="text-sm font-medium mr-2 cursor-pointer 
+                                            ${isDone ? 'text-green-400' : 'text-slate-400'}">
+                                            ${isDone ? 'FAIT' : 'À FAIRE'}
+                                        </label>
+                                        <input type="checkbox" 
+                                            id="done-${sessionId}-${subExo.name.replace(/\s/g, '-')}" 
+                                            class="cursor-pointer"
+                                            ${isDone ? 'checked' : ''}
+                                            onclick="${onChangeHandler}"
+                                            onchange="
+                                                const parentDiv = this.closest('.pl-2');
+                                                parentDiv.classList.toggle('border-green-500', this.checked);
+                                                parentDiv.classList.toggle('border-slate-500', !this.checked);
+
+                                                const h4 = parentDiv.querySelector('h4');
+                                                h4.classList.toggle('line-through', this.checked);
+                                                h4.classList.toggle('text-green-300', this.checked);
+                                                h4.classList.toggle('text-white', !this.checked);
+                                                
+                                                const label = parentDiv.querySelector('label');
+                                                label.textContent = this.checked ? 'FAIT' : 'À FAIRE'; 
+                                                label.classList.toggle('text-green-400', this.checked);
+                                            "
+                                        />
+                                    </div>
+
+                                    <!-- Bouton d'image, envoi de l'URL et du prompt -->
+                                    <button onclick="window.toggleImage('${imageContainerId}', '${subExo.prompt.replace(/'/g, "\\'")}', '${subExo.imgUrl || ''}')"
+                                        class="text-xs px-3 py-1 bg-cyan-600 text-white font-medium rounded-full hover:bg-cyan-500 transition duration-150 shadow-md flex-shrink-0">
+                                        Voir
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Conteneur d'image pour le sous-exercice -->
+                            <div id="${imageContainerId}" class="mt-3 hidden">
+                                <div class="flex justify-center items-center h-48 bg-slate-600 rounded-lg" id="${placeholderId}">
+                                    <p class="text-slate-400">Cliquez sur 'Voir' pour générer l'image.</p>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }); // Fin de la boucle subExercises
 
                 html += `
-                    <div class="bg-slate-700 p-4 rounded-xl shadow-lg border border-slate-600 transition duration-300 
-                        ${isDone ? 'ring-2 ring-green-500' : 'hover:shadow-cyan-500/30'}">
-                        
-                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-                            <h3 class="text-lg font-bold ${isDone ? 'text-green-300 line-through' : 'text-white'}">
-                                ${exoIndex + 1}. ${exo.name}
-                            </h3>
-                            
-                            <div class="flex items-center space-x-4 mt-2 sm:mt-0">
-                                <!-- Contrôle Fait/Non Fait -->
-                                <div class="flex items-center">
-                                    <label for="done-${sessionId}-${exoIndex}" class="text-sm font-medium mr-2 cursor-pointer 
-                                        ${isDone ? 'text-green-400' : 'text-slate-400'}">
-                                        ${isDone ? 'FAIT' : 'À FAIRE'}
-                                    </label>
-                                    <input type="checkbox" 
-                                        id="done-${sessionId}-${exoIndex}" 
-                                        class="cursor-pointer"
-                                        ${isDone ? 'checked' : ''}
-                                        onclick="${onChangeHandler}"
-                                        onchange="
-                                            const container = this.closest('div.bg-slate-700');
-                                            container.classList.toggle('ring-2', this.checked); 
-                                            container.classList.toggle('ring-green-500', this.checked); 
-                                            container.querySelector('h3').classList.toggle('line-through', this.checked); 
-                                            container.querySelector('h3').classList.toggle('text-green-300', this.checked); 
-                                            container.querySelector('label').textContent = this.checked ? 'FAIT' : 'À FAIRE'; 
-                                            container.querySelector('label').classList.toggle('text-green-400', this.checked);
-                                        "
-                                    />
-                                </div>
-
-                                <!-- Bouton d'image -->
-                                <button onclick="window.toggleImage('img-${sessionId}-${exoIndex}', '${exo.prompt}')"
-                                    class="text-xs px-3 py-1 bg-cyan-600 text-white font-medium rounded-full hover:bg-cyan-500 transition duration-150 shadow-md flex-shrink-0">
-                                    Voir l'Exo
-                                </button>
-                            </div>
                         </div>
-                        
-                        <p class="text-xs text-slate-400 mt-2 mb-1">
-                            Séries: <span class="font-semibold">${exo.sets}</span> | Rép: <span class="font-semibold">${exo.reps}</span> | Repos: <span class="font-semibold">${exo.rest}</span>
-                        </p>
-                        
-                        <div id="img-${sessionId}-${exoIndex}" class="mt-3 hidden">
-                            <div class="flex justify-center items-center h-48 bg-slate-600 rounded-lg" id="img-placeholder-${sessionId}-${exoIndex}">
-                                <p class="text-slate-400">Cliquez sur 'Voir l'Exo' pour générer l'image.</p>
-                            </div>
-                        </div>
-                        
                     </div>
                 `;
-            });
+            }); // Fin de la boucle blocks
             return html;
         }
 
@@ -510,22 +635,35 @@
         }
 
 
-        // --- Logique d'image Gemini API (inchangée) ---
+        // --- Logique d'image Gemini API ---
 
-        // Masquer/Afficher l'image. Si masquée, elle est effacée.
-        window.toggleImage = function(containerId, prompt) {
+        // Masquer/Afficher l'image. Si masquée, elle est effacée. Gère maintenant les URLs d'images.
+        window.toggleImage = function(containerId, prompt, imgUrl = '') {
             const container = document.getElementById(containerId);
-            const parts = containerId.split('-'); // ex: ['img', 'Séance 1', '0']
-            const placeholderId = `img-placeholder-${parts[1]}-${parts[2]}`;
-            const placeholder = document.getElementById(placeholderId);
-            
+            // Le placeholder est le premier enfant div du container
+            const placeholder = container.querySelector('div[id^="img-placeholder"]');
+
             if (container.classList.contains('hidden')) {
                 container.classList.remove('hidden');
-                placeholder.innerHTML = `<div class="flex flex-col items-center justify-center h-full"><span class="loading-ring"></span><p class="mt-3 text-slate-400">Génération de l'image...</p></div>`;
-                window.generateImage(prompt, placeholder);
+
+                if (imgUrl) {
+                    // 1. URL fournie: Afficher l'image directement
+                    placeholder.innerHTML = `<img src="${imgUrl}" class="w-full h-auto object-contain max-h-48 rounded-lg" onerror="this.onerror=null; this.src='https://placehold.co/600x400/94a3b8/0f172a?text=Image+non+disponible'; this.closest('div').classList.add('bg-slate-600'); this.closest('div').style.height='12rem';" alt="Illustration de l'exercice par URL">`;
+                    placeholder.classList.remove('bg-slate-600'); 
+                    placeholder.style.height = 'auto'; // Ajuste la hauteur si l'image est chargée
+                } else {
+                    // 2. Pas d'URL: Générer l'image via l'API
+                    placeholder.innerHTML = `<div class="flex flex-col items-center justify-center h-full"><span class="loading-ring"></span><p class="mt-3 text-slate-400">Génération de l'image...</p></div>`;
+                    placeholder.style.height = '12rem'; // Hauteur par défaut pour le chargement
+                    placeholder.classList.add('bg-slate-600');
+                    window.generateImage(prompt, placeholder);
+                }
+
             } else {
                 container.classList.add('hidden');
-                placeholder.innerHTML = `<p class="text-slate-400">Cliquez sur 'Voir l'Exo' pour générer l'image.</p>`;
+                placeholder.innerHTML = `<p class="text-slate-400">Cliquez sur 'Voir' pour générer l'image.</p>`;
+                placeholder.classList.add('bg-slate-600');
+                placeholder.style.height = '12rem'; // Reset height
             }
         };
 
@@ -573,6 +711,7 @@
                         placeholderElement.innerHTML = `<img src="${imageUrl}" class="w-full h-full object-contain rounded-lg" alt="Illustration de l'exercice">`;
                         // Ajuster le fond du conteneur parent pour qu'il soit transparent et laisser l'image s'afficher
                         placeholderElement.classList.remove('bg-slate-600'); 
+                        placeholderElement.style.height = 'auto'; // Ajuste la hauteur
                         return; // Succès
                     } else {
                         throw new Error('Aucune donnée d\'image valide reçue.');
