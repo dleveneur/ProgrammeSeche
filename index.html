@@ -53,8 +53,7 @@
     <!-- Logique JavaScript principale -->
     <script>
 
-        // Définition des variables globales (non utilisées pour le stockage local, mais conservées pour la structure)
-        const appId = 'github-pages-app';
+        // Définition des variables globales
         const userId = 'local-user'; 
 
         window.appData = {
@@ -142,11 +141,7 @@
 
         // --- Fonctions d'aide (Date et Programme) ---
         function getProgramDay(date) {
-            const startDate = new Date(2025, 10, 3); // Lundi précédent (3 novembre 2025)
-            const diffTime = Math.abs(date - startDate);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            
-            // Le programme est sur 7 jours. La semaine commence le Lundi (jour 1)
+            // Le programme est sur 7 jours. 
             const dayOfWeek = date.getDay(); // 0 (Dim) - 6 (Sam)
             return window.program.weeklySchedule[dayOfWeek];
         }
@@ -195,11 +190,38 @@
             // 4. Sauvegarder l'objet mis à jour
             try {
                 localStorage.setItem(storageKey, JSON.stringify(dailyLogs));
-                // Le re-rendu sera déclenché dans la fonction d'écoute locale (voir ci-dessous)
             } catch (error) {
                 console.error("Erreur lors de la sauvegarde dans localStorage:", error);
-                alert("Erreur de sauvegarde locale. Votre navigateur est peut-être en mode privé.");
+                // Utiliser un message d'erreur personnalisé au lieu d'alert()
+                displayMessage("Erreur de sauvegarde locale. Votre navigateur est peut-être en mode privé.", 'error');
             }
+        }
+        
+        function displayMessage(message, type = 'info') {
+            const container = document.getElementById('app-message-container');
+            if (!container) return;
+
+            const baseClasses = "p-3 rounded-lg mb-4 text-center text-sm font-medium transition-opacity duration-300";
+            let colorClasses = '';
+
+            switch (type) {
+                case 'success':
+                    colorClasses = "bg-green-900 border border-green-700 text-green-300";
+                    break;
+                case 'error':
+                    colorClasses = "bg-red-900 border border-red-700 text-red-300";
+                    break;
+                case 'warning':
+                default:
+                    colorClasses = "bg-yellow-900 border border-yellow-700 text-yellow-300";
+                    break;
+            }
+
+            container.innerHTML = `<div class="${baseClasses} ${colorClasses}">${message}</div>`;
+            setTimeout(() => {
+                // Effacer le message après 5 secondes
+                container.innerHTML = '';
+            }, 5000);
         }
         
         // Fonction pour récupérer les logs (pour l'affichage quotidien)
@@ -221,29 +243,22 @@
             }
             
             // Pour simuler l'asynchronisme de Firestore et mettre à jour le tracker
-            setTimeout(() => callback(logs), 0);
+            setTimeout(() => {
+                callback(logs);
+                // Forcer le re-rendu de la vue du jour après la récupération/mise à jour
+                const sessionName = getProgramDay(window.state.today);
+                const session = window.program.sessions[sessionName];
+                if (sessionName !== 'Repos' && document.getElementById('session-tracker')) {
+                    document.getElementById('session-tracker').innerHTML = renderSessionTracker(sessionName, session);
+                }
+            }, 0);
         }
         
         // Simuler l'écoute des changements (pour mettre à jour la vue immédiatement après l'enregistrement)
         window.attachLocalListener = function(dateKey) {
-            // Nous n'avons pas d'écouteur "onSnapshot" dans localStorage. 
-            // Nous allons donc forcer le re-rendu après chaque modification (dans logPerformance).
-            // Pour l'instant, on se base sur le déclenchement initial et la mise à jour manuelle
-            // qui est gérée par l'événement 'onchange' des inputs.
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            const currentDayKey = today.toISOString().split('T')[0];
-            
-            if (dateKey === currentDayKey) {
-                 window.getDailyLogs(dateKey, (logs) => {
-                    window.currentLogs = logs;
-                    const sessionName = getProgramDay(today);
-                    const session = window.program.sessions[sessionName];
-                    if (sessionName !== 'Repos' && document.getElementById('session-tracker')) {
-                        document.getElementById('session-tracker').innerHTML = renderSessionTracker(sessionName, session);
-                    }
-                });
-            }
+             window.getDailyLogs(dateKey, (logs) => {
+                window.currentLogs = logs;
+            });
         }
 
         // --- Logique de rendu ---
@@ -251,7 +266,7 @@
             // Initialisation de l'état de l'application
             window.state = {
                 activeTab: 'today', // 'today' ou 'calendar'
-                today: new Date(),
+                today: new Date(), // Utilise la date système actuelle
                 todayDateKey: new Date().toISOString().split('T')[0]
             };
             
@@ -260,8 +275,10 @@
                 <div class="container-app p-4">
                     <h1 class="text-4xl font-extrabold text-center text-cyan-400 my-6 tracking-wide">FITNESS 90 Jours</h1>
                     
-                    <div class="p-3 bg-green-900 border border-green-700 text-green-300 rounded-lg mb-4 text-center text-sm font-medium">
-                        ✅ Sauvegarde **locale** activée (dans votre navigateur). Vos données persistent sur cet appareil uniquement.
+                    <div id="app-message-container">
+                        <div class="p-3 bg-green-900 border border-green-700 text-green-300 rounded-lg mb-4 text-center text-sm font-medium">
+                            ✅ Sauvegarde **locale** activée (dans votre navigateur). Vos données persistent sur cet appareil uniquement.
+                        </div>
                     </div>
 
                     <!-- Navigation par Onglets -->
@@ -341,6 +358,7 @@
             if (!session || !session.exercises) return '';
             
             let html = '';
+            // Utilise window.currentLogs qui est mis à jour par getDailyLogs/attachLocalListener
             const sessionLogs = window.currentLogs && window.currentLogs[sessionId] ? window.currentLogs[sessionId].exercises : {};
 
             session.exercises.forEach((exo, exoIndex) => {
