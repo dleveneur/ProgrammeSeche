@@ -50,28 +50,20 @@
             to { transform: rotate(360deg); }
         }
     </style>
-    <!-- Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection, query, orderBy, limit, serverTimestamp, getDoc, updateDoc, where } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    <!-- Logique JavaScript principale -->
+    <script>
 
-        // Définition des variables globales (fournies par l'environnement Canvas)
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        // Définition des variables globales (non utilisées pour le stockage local, mais conservées pour la structure)
+        const appId = 'github-pages-app';
+        const userId = 'local-user'; 
 
-        let db, auth, userId;
         window.appData = {
-            db: null,
-            auth: null,
-            userId: null,
-            isAuthReady: false
+            userId: userId,
+            isAuthReady: false,
+            // Indique que la sauvegarde est locale dans le navigateur
+            isDataSavingEnabled: true, 
+            storageType: 'localStorage'
         };
-
-        // Configuration Firestore pour le débogage
-        setLogLevel('Debug');
 
         // Programme et logiques
         window.program = {
@@ -155,8 +147,6 @@
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             
             // Le programme est sur 7 jours. La semaine commence le Lundi (jour 1)
-            // Lundi = Séance 1 (J1), Mardi = S2 (J2), Mercredi = Repos (J3), Jeudi = S3 (J4), Vendredi = S4 (J5), Samedi = S5 (J6), Dimanche = Repos (J7).
-            
             const dayOfWeek = date.getDay(); // 0 (Dim) - 6 (Sam)
             return window.program.weeklySchedule[dayOfWeek];
         }
@@ -165,111 +155,99 @@
             return date.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
         }
 
-        // --- Logique Firebase ---
-        async function initializeFirebase() {
-            if (!firebaseConfig) {
-                console.error("Firebase config is missing.");
-                document.getElementById('app').innerHTML = `<div class="p-4 bg-red-800 text-white rounded-lg">Erreur: Configuration Firebase manquante. L'application ne peut pas enregistrer de données.</div>`;
-                return;
-            }
+        // --- Logique de Stockage Local ---
 
-            const app = initializeApp(firebaseConfig);
-            db = getFirestore(app);
-            auth = getAuth(app);
-            
-            window.appData.db = db;
-            window.appData.auth = auth;
-
-            onAuthStateChanged(auth, async (user) => {
-                if (user) {
-                    userId = user.uid;
-                } else {
-                    try {
-                         // Tentative de connexion avec le token fourni
-                        if (initialAuthToken) {
-                            await signInWithCustomToken(auth, initialAuthToken);
-                        } else {
-                            // Si pas de token, connexion anonyme
-                            await signInAnonymously(auth);
-                        }
-                        userId = auth.currentUser.uid;
-                    } catch (error) {
-                        console.error("Erreur d'authentification:", error);
-                        // Fallback: utiliser un ID aléatoire (les écritures échoueront sans les règles appropriées)
-                        userId = 'anon-' + crypto.randomUUID(); 
-                    }
-                }
-                window.appData.userId = userId;
-                window.appData.isAuthReady = true;
-                console.log("Authentification terminée. User ID:", userId);
-                renderApp();
-            });
+        function initializeApp() {
+            // L'application est prête immédiatement car il n'y a pas d'attente d'authentification
+            window.appData.isAuthReady = true;
+            console.log("Application initialisée. Sauvegarde locale activée.");
+            renderApp();
         }
 
-        window.logPerformance = async function(sessionId, exerciseName, setIndex, weight, reps) {
-            if (!window.appData.isAuthReady) {
-                console.error("Authentification non prête.");
-                return;
-            }
-
+        window.logPerformance = function(sessionId, exerciseName, setIndex, weight, reps) {
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             const dateKey = today.toISOString().split('T')[0];
-            
-            const logRef = doc(window.appData.db, `artifacts/${appId}/users/${window.appData.userId}/training_logs/${dateKey}`);
-            
-            // Chemin pour le set spécifique
-            const setPath = `sessions.${sessionId}.exercises.${exerciseName}.sets.${setIndex}`;
+            const storageKey = `${userId}_${dateKey}`; // Clé unique par utilisateur/jour
 
-            try {
-                // Utiliser la fonction pour mettre à jour un champ imbriqué (setPath)
-                await setDoc(logRef, {
-                    sessionId: sessionId,
+            // 1. Charger les logs existants pour aujourd'hui
+            let dailyLogs = JSON.parse(localStorage.getItem(storageKey) || '{}');
+
+            // 2. Assurer la structure de la session
+            if (!dailyLogs.sessions) dailyLogs.sessions = {};
+            if (!dailyLogs.sessions[sessionId]) {
+                dailyLogs.sessions[sessionId] = { 
                     sessionName: window.program.sessions[sessionId].name,
-                    date: today,
-                    [setPath]: {
-                        weight: parseFloat(weight) || 0,
-                        reps: parseInt(reps) || 0,
-                        timestamp: serverTimestamp()
-                    }
-                }, { merge: true });
+                    exercises: {} 
+                };
+            }
+            if (!dailyLogs.sessions[sessionId].exercises[exerciseName]) {
+                dailyLogs.sessions[sessionId].exercises[exerciseName] = { sets: {} };
+            }
 
+            // 3. Enregistrer le set spécifique
+            dailyLogs.sessions[sessionId].exercises[exerciseName].sets[setIndex] = {
+                weight: parseFloat(weight) || 0,
+                reps: parseInt(reps) || 0,
+                timestamp: Date.now() // Utilise un timestamp JavaScript simple
+            };
+
+            // 4. Sauvegarder l'objet mis à jour
+            try {
+                localStorage.setItem(storageKey, JSON.stringify(dailyLogs));
+                // Le re-rendu sera déclenché dans la fonction d'écoute locale (voir ci-dessous)
             } catch (error) {
-                console.error("Erreur lors de l'enregistrement de la performance :", error);
+                console.error("Erreur lors de la sauvegarde dans localStorage:", error);
+                alert("Erreur de sauvegarde locale. Votre navigateur est peut-être en mode privé.");
             }
         }
         
         // Fonction pour récupérer les logs (pour l'affichage quotidien)
         window.getDailyLogs = function(dateKey, callback) {
-            if (!window.appData.isAuthReady) return;
+            // Clé de stockage
+            const storageKey = `${userId}_${dateKey}`;
             
-            const logRef = doc(window.appData.db, `artifacts/${appId}/users/${window.appData.userId}/training_logs/${dateKey}`);
-            
-            // onSnapshot permet d'écouter les changements en temps réel
-            onSnapshot(logRef, (doc) => {
-                if (doc.exists()) {
-                    callback(doc.data().sessions || {});
-                } else {
-                    callback({});
+            // Récupérer et parser les données
+            const rawData = localStorage.getItem(storageKey);
+            let logs = {};
+
+            if (rawData) {
+                try {
+                    const parsedData = JSON.parse(rawData);
+                    logs = parsedData.sessions || {};
+                } catch (e) {
+                    console.error("Erreur de parsing des logs locaux:", e);
                 }
-            }, (error) => {
-                console.error("Erreur de récupération des logs:", error);
-                callback({});
-            });
-        }
-        
-        // --- Logique de rendu ---
-        window.renderApp = function() {
-            if (!window.appData.isAuthReady) {
-                document.getElementById('app').innerHTML = `
-                    <div class="flex justify-center items-center h-48">
-                        <span class="loading-ring"></span>
-                        <p class="ml-3 text-gray-400">Chargement de l'application et de l'authentification...</p>
-                    </div>
-                `;
-                return;
             }
             
+            // Pour simuler l'asynchronisme de Firestore et mettre à jour le tracker
+            setTimeout(() => callback(logs), 0);
+        }
+        
+        // Simuler l'écoute des changements (pour mettre à jour la vue immédiatement après l'enregistrement)
+        window.attachLocalListener = function(dateKey) {
+            // Nous n'avons pas d'écouteur "onSnapshot" dans localStorage. 
+            // Nous allons donc forcer le re-rendu après chaque modification (dans logPerformance).
+            // Pour l'instant, on se base sur le déclenchement initial et la mise à jour manuelle
+            // qui est gérée par l'événement 'onchange' des inputs.
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const currentDayKey = today.toISOString().split('T')[0];
+            
+            if (dateKey === currentDayKey) {
+                 window.getDailyLogs(dateKey, (logs) => {
+                    window.currentLogs = logs;
+                    const sessionName = getProgramDay(today);
+                    const session = window.program.sessions[sessionName];
+                    if (sessionName !== 'Repos' && document.getElementById('session-tracker')) {
+                        document.getElementById('session-tracker').innerHTML = renderSessionTracker(sessionName, session);
+                    }
+                });
+            }
+        }
+
+        // --- Logique de rendu ---
+        window.renderApp = function() {
             // Initialisation de l'état de l'application
             window.state = {
                 activeTab: 'today', // 'today' ou 'calendar'
@@ -281,7 +259,10 @@
             document.getElementById('app').innerHTML = `
                 <div class="container-app p-4">
                     <h1 class="text-4xl font-extrabold text-center text-cyan-400 my-6 tracking-wide">FITNESS 90 Jours</h1>
-                    <div class="text-xs text-center text-gray-500 mb-4">ID Utilisateur: ${window.appData.userId}</div>
+                    
+                    <div class="p-3 bg-green-900 border border-green-700 text-green-300 rounded-lg mb-4 text-center text-sm font-medium">
+                        ✅ Sauvegarde **locale** activée (dans votre navigateur). Vos données persistent sur cet appareil uniquement.
+                    </div>
 
                     <!-- Navigation par Onglets -->
                     <div class="flex justify-center border-b border-slate-700 mb-6">
@@ -338,22 +319,21 @@
                             Prenez le temps de récupérer, la progression continue même au repos !
                         </div>
                     ` : `
-                        <p class="text-slate-400 mb-6 mt-4">Enregistrez vos performances ci-dessous. Les données sont sauvegardées automatiquement pour suivre votre progression.</p>
+                        <p class="text-slate-400 mb-6 mt-4">Enregistrez vos performances ci-dessous. Les données sont sauvegardées **localement** dans votre navigateur.</p>
                         <div id="session-tracker" class="scroll-container space-y-6">
-                            ${renderSessionTracker(sessionName, session)}
+                            <!-- Sera rempli par renderSessionTracker après la récupération des logs -->
+                            <div class="flex justify-center items-center h-24">
+                                <span class="loading-ring"></span>
+                            </div>
                         </div>
                     `}
                 </div>
             `;
             document.getElementById('content-today').innerHTML = htmlContent;
             
-            // Attacher l'écouteur de logs pour la vue du jour
+            // Récupérer les logs et attacher l'écouteur local
             if (sessionName !== 'Repos') {
-                 window.getDailyLogs(window.state.todayDateKey, (logs) => {
-                    window.currentLogs = logs;
-                    // Mettre à jour l'affichage avec les logs récupérés
-                    document.getElementById('session-tracker').innerHTML = renderSessionTracker(sessionName, session);
-                });
+                 window.attachLocalListener(window.state.todayDateKey);
             }
         }
 
@@ -366,9 +346,7 @@
             session.exercises.forEach((exo, exoIndex) => {
                 const exoLogs = sessionLogs[exo.name] ? sessionLogs[exo.name].sets : {};
                 
-                // Calcul du nombre maximum de sets à afficher (gère "3-4" -> 4 sets)
                 const allNums = Array.from(exo.sets.matchAll(/(\d+)/g)).map(m => parseInt(m[1], 10));
-                // Prendre le nombre de sets le plus élevé ou 3 par défaut.
                 const numSets = allNums.length > 0 ? Math.max(...allNums) : 3; 
 
                 html += `
@@ -392,27 +370,31 @@
                         <div class="mt-4 space-y-2">
                             ${Array.from({ length: numSets }).map((_, setIndex) => {
                                 const log = exoLogs[setIndex.toString()] || {};
+                                
+                                // Utiliser l'index du set pour les IDs
+                                const setInputId = `${sessionId}-${exoIndex}-${setIndex}`;
+
                                 return `
                                     <div class="flex items-center space-x-2 bg-slate-800 p-2 rounded-md border border-slate-600">
                                         <span class="font-medium text-cyan-400 w-12 flex-shrink-0">Set ${setIndex + 1}:</span>
                                         
-                                        <label for="weight-${sessionId}-${exoIndex}-${setIndex}" class="text-sm text-slate-400 sr-only">Poids (kg):</label>
+                                        <label for="weight-${setInputId}" class="text-sm text-slate-400 sr-only">Poids (kg):</label>
                                         <input type="number" 
                                             placeholder="kg" 
                                             class="w-1/4 p-1 border rounded-lg bg-slate-900 text-white border-slate-600 focus:ring-cyan-500 focus:border-cyan-500 text-sm"
-                                            id="weight-${sessionId}-${exoIndex}-${setIndex}"
+                                            id="weight-${setInputId}"
                                             value="${log.weight || ''}"
-                                            onchange="window.logPerformance('${sessionId}', '${exo.name}', '${setIndex}', this.value, document.getElementById('reps-${sessionId}-${exoIndex}-${setIndex}').value)"
+                                            onchange="window.logPerformance('${sessionId}', '${exo.name}', '${setIndex}', this.value, document.getElementById('reps-${setInputId}').value); window.attachLocalListener(window.state.todayDateKey);"
                                             min="0"
                                         />
                                         
-                                        <label for="reps-${sessionId}-${exoIndex}-${setIndex}" class="text-sm text-slate-400 sr-only">Reps:</label>
+                                        <label for="reps-${setInputId}" class="text-sm text-slate-400 sr-only">Reps:</label>
                                         <input type="number" 
                                             placeholder="Reps" 
                                             class="w-1/4 p-1 border rounded-lg bg-slate-900 text-white border-slate-600 focus:ring-cyan-500 focus:border-cyan-500 text-sm"
-                                            id="reps-${sessionId}-${exoIndex}-${setIndex}"
+                                            id="reps-${setInputId}"
                                             value="${log.reps || ''}"
-                                            onchange="window.logPerformance('${sessionId}', '${exo.name}', '${setIndex}', document.getElementById('weight-${sessionId}-${exoIndex}-${setIndex}').value, this.value)"
+                                            onchange="window.logPerformance('${sessionId}', '${exo.name}', '${setIndex}', document.getElementById('weight-${setInputId}').value, this.value); window.attachLocalListener(window.state.todayDateKey);"
                                             min="0"
                                         />
                                     </div>
@@ -467,13 +449,18 @@
         }
 
 
-        // --- Logique d'image Gemini API ---
+        // --- Logique d'image Gemini API (inchangée) ---
 
         // Masquer/Afficher l'image. Si masquée, elle est effacée.
         window.toggleImage = function(containerId, prompt) {
             const container = document.getElementById(containerId);
-            const placeholder = document.getElementById(`img-placeholder-${containerId.split('-').slice(2).join('-')}`);
+            // L'ID du placeholder doit être construit à partir des indices pour être unique et facile à retrouver
+            // La logique est ajustée pour retrouver l'ID du placeholder correctement.
+            const parts = containerId.split('-'); // ex: ['img', 'Séance 1', '0']
+            const placeholderId = `img-placeholder-${parts[1]}-${parts[2]}`;
 
+            const placeholder = document.getElementById(placeholderId);
+            
             if (container.classList.contains('hidden')) {
                 container.classList.remove('hidden');
                 placeholder.innerHTML = `<div class="flex flex-col items-center justify-center h-full"><span class="loading-ring"></span><p class="mt-3 text-slate-400">Génération de l'image...</p></div>`;
@@ -553,7 +540,7 @@
 
 
         // Démarrage de l'application
-        window.onload = initializeFirebase;
+        window.onload = initializeApp;
 
     </script>
 </head>
