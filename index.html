@@ -267,8 +267,8 @@
             }, 5000);
         }
         
-        // Fonction pour récupérer les logs (pour l'affichage quotidien)
-        window.getDailyLogs = function(dateKey, callback) {
+        // Fonction pour récupérer les logs (pour l'affichage quotidien) - MAINTENANT SYNCHRONE
+        window.getDailyLogs = function(dateKey) {
             const storageKey = `${userId}_${dateKey}`;
             const rawData = localStorage.getItem(storageKey);
             let logs = {};
@@ -281,24 +281,21 @@
                     console.error("Erreur de parsing des logs locaux:", e);
                 }
             }
-            
-            // Simuler l'asynchronisme et mettre à jour l'état de la vue
-            setTimeout(() => {
-                callback(logs);
-                // Forcer le re-rendu de la vue du jour après la récupération initiale
-                const sessionName = getProgramDay(window.state.today);
-                const session = window.program.sessions[sessionName];
-                if (sessionName !== 'Repos' && document.getElementById('session-tracker')) {
-                    document.getElementById('session-tracker').innerHTML = renderSessionTracker(sessionName, session);
-                }
-            }, 0);
+            return logs; // Retourne les logs directement
         }
         
-        // Simuler l'écoute des changements (Seulement pour la charge initiale)
+        // Gère la récupération initiale des logs et le rendu du tracker
         window.attachLocalListener = function(dateKey) {
-             window.getDailyLogs(dateKey, (logs) => {
-                window.currentLogs = logs;
-            });
+             // 1. Récupérer les logs de manière synchrone
+             const logs = window.getDailyLogs(dateKey);
+             window.currentLogs = logs;
+             
+             // 2. Forcer le re-rendu du tracker avec les logs mis à jour
+             const sessionName = getProgramDay(window.state.today);
+             const session = window.program.sessions[sessionName];
+             if (sessionName !== 'Repos' && document.getElementById('session-tracker')) {
+                document.getElementById('session-tracker').innerHTML = renderSessionTracker(sessionName, session);
+             }
         }
 
         // --- Logique de rendu ---
@@ -399,7 +396,7 @@
             if (!session || !session.exercises) return '';
             
             let html = '';
-            // Utilise window.currentLogs qui est mis à jour par getDailyLogs/attachLocalListener
+            // Utilise window.currentLogs qui est mis à jour par attachLocalListener
             const sessionLogs = window.currentLogs && window.currentLogs[sessionId] ? window.currentLogs[sessionId].exercises : {};
 
             session.exercises.forEach((exo, exoIndex) => {
