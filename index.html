@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Programme Sèche 90 Jours</title>
+    <title>Programme Modulable Sèche 90 Jours</title>
     <!-- Chargement de Tailwind CSS pour le style -->
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -22,7 +22,6 @@
         .scroll-container {
             max-height: 70vh;
             overflow-y: auto;
-            /* Scrollbar style for dark mode */
             scrollbar-color: #0d9488 #1e293b;
             scrollbar-width: thin;
         }
@@ -79,26 +78,39 @@
             font-size: 14px;
             font-weight: bold;
         }
+
+        /* Styles pour le Drag & Drop */
+        .draggable-item {
+            cursor: grab;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        .dragging {
+            opacity: 0.5;
+            transform: scale(0.98);
+        }
+        .drag-over {
+            border-bottom: 3px solid #f97316; /* Orange 500 pour indiquer la position */
+            background-color: #334155; /* Slate 700 un peu plus clair */
+        }
+        .drag-handle {
+            cursor: move;
+            position: absolute;
+            top: 50%;
+            left: -1.5rem;
+            transform: translateY(-50%);
+            color: #94a3b8;
+        }
     </style>
     <!-- Logique JavaScript principale -->
     <script>
-
-        // Définition des variables globales
+        // --- Constantes et initialisation ---
         const userId = 'local-user'; 
+        const PROGRAM_START_DATE = new Date('2025-11-04T00:00:00'); // Mardi 4 Novembre 2025
+        const PROGRAM_DATA_KEY = 'fitness_90_days_program_v3'; // Clé pour la sauvegarde de la structure du programme
 
-        window.appData = {
-            userId: userId,
-            isAuthReady: false,
-            // Indique que la sauvegarde est locale dans le navigateur
-            isDataSavingEnabled: true, 
-            storageType: 'localStorage'
-        };
-
-        // Programme et logiques
-        // Chaque séance contient des "blocks" (super-sets ou circuits)
-        // Chaque block a ses sets et son temps de repos après le block.
-        // Les exercices individuels sont des "subExercises" dans le block.
-        window.program = {
+        // Définition du programme initial (sera chargé ou remplacé par la sauvegarde locale)
+        const initialProgram = {
             weeklySchedule: {
                 0: 'Repos', // Dimanche
                 1: 'Séance 1', // Lundi
@@ -262,11 +274,51 @@
             }
         };
 
-        // --- Fonctions d'aide (Date et Programme) ---
+        // --- Fonctions de Stockage du Programme (Structure) ---
+
+        // Sauvegarder la structure complète du programme
+        function saveProgramStructure(program) {
+            try {
+                localStorage.setItem(PROGRAM_DATA_KEY, JSON.stringify(program));
+                console.log("Structure du programme sauvegardée avec succès.");
+            } catch (error) {
+                console.error("Erreur de sauvegarde de la structure du programme:", error);
+            }
+        }
+
+        // Charger la structure complète du programme, utilise l'initiale si non trouvé
+        function loadProgramStructure() {
+            const savedProgram = localStorage.getItem(PROGRAM_DATA_KEY);
+            if (savedProgram) {
+                try {
+                    console.log("Structure du programme chargée depuis le local storage.");
+                    return JSON.parse(savedProgram);
+                } catch (e) {
+                    console.error("Erreur de parsing du programme sauvegardé. Utilisation du programme initial.");
+                    return initialProgram;
+                }
+            }
+            console.log("Aucune structure de programme trouvée. Utilisation et sauvegarde du programme initial.");
+            saveProgramStructure(initialProgram);
+            return initialProgram;
+        }
+
+        // --- Logique du Programme et des Dates ---
+
         function getProgramDay(date) {
-            // Le programme est sur 7 jours. 
-            const dayOfWeek = date.getDay(); // 0 (Dim) - 6 (Sam)
-            return window.program.weeklySchedule[dayOfWeek];
+            const msInDay = 1000 * 60 * 60 * 24;
+            // On calcule le nombre de jours écoulés depuis le début du programme
+            const diffDays = Math.floor((date.getTime() - PROGRAM_START_DATE.getTime()) / msInDay);
+            
+            // Le programme tourne sur 7 jours (jours 0 à 6)
+            const programDayIndex = (diffDays % 7 + 7) % 7; 
+            
+            // On fait correspondre l'index (0-6) au jour de la semaine (Dimanche=0, Lundi=1...)
+            // Le programme commence un Mardi (index 2 dans le weeklySchedule).
+            // Le 4/11 est un Mardi, qui correspond à l'index 2 dans la boucle de 7 jours (Mardi=2, Mercredi=3, etc.)
+            // On utilise la date réelle pour déterminer le mapping
+            const realDayOfWeek = date.getDay(); 
+            return window.program.weeklySchedule[realDayOfWeek];
         }
 
         function formatDate(date) {
@@ -284,44 +336,30 @@
             };
         }
 
+        // --- Logique de Stockage Local du Statut Fait/Pas Fait (Similaire à avant) ---
 
-        // --- Logique de Stockage Local Simplifiée (Fait/Pas Fait) ---
-
-        function initializeApp() {
-            window.appData.isAuthReady = true;
-            console.log("Application initialisée. Sauvegarde locale activée.");
-            renderApp();
-        }
-
-        // Fonction de sauvegarde réelle (interne) pour le statut Fait/Pas Fait
-        // Utilise le nom du sous-exercice comme clé, ce qui est unique au sein de la session
         window._toggleExerciseDone = function(sessionId, exerciseName, isDone) {
             const today = window.state.today;
-            // IMPORTANT : Utiliser un clone pour ne pas altérer l'objet date dans l'état
             const dateForStorage = new Date(today); 
             dateForStorage.setHours(0, 0, 0, 0); 
             const dateKey = dateForStorage.toISOString().split('T')[0];
-            const storageKey = `${userId}_${dateKey}`; // Clé unique par utilisateur/jour
+            const storageKey = `${userId}_${dateKey}`; 
 
-            // 1. Charger les logs existants pour aujourd'hui
             let dailyLogs = JSON.parse(localStorage.getItem(storageKey) || '{}');
 
-            // 2. Assurer la structure de la session
             if (!dailyLogs.sessions) dailyLogs.sessions = {};
             if (!dailyLogs.sessions[sessionId]) {
                 dailyLogs.sessions[sessionId] = { 
                     sessionName: window.program.sessions[sessionId].name,
-                    exercises: {} // Les logs utilisent le nom de l'exercice/sous-exercice comme clé
+                    exercises: {} 
                 };
             }
 
-            // 3. Enregistrer le statut de l'exercice
             dailyLogs.sessions[sessionId].exercises[exerciseName] = {
                 isDone: isDone,
                 timestamp: Date.now() 
             };
 
-            // 4. Sauvegarder l'objet mis à jour
             try {
                 localStorage.setItem(storageKey, JSON.stringify(dailyLogs));
                 console.log(`Exercise ${exerciseName} marked as done: ${isDone}.`);
@@ -331,7 +369,6 @@
             }
         }
         
-        // Créer la fonction debounced (publique) pour la rendre fluide
         window.debouncedToggleDone = debounce(window._toggleExerciseDone, 300);
         
         function displayMessage(message, type = 'info') {
@@ -348,20 +385,18 @@
                 case 'error':
                     colorClasses = "bg-red-900 border border-red-700 text-red-300";
                     break;
-                case 'warning':
+                case 'info':
                 default:
-                    colorClasses = "bg-yellow-900 border border-yellow-700 text-yellow-300";
+                    colorClasses = "bg-slate-700 border border-slate-600 text-slate-300";
                     break;
             }
 
             container.innerHTML = `<div class="${baseClasses} ${colorClasses}">${message}</div>`;
             setTimeout(() => {
-                // Effacer le message après 5 secondes
                 container.innerHTML = '';
             }, 5000);
         }
         
-        // Fonction pour récupérer les logs (pour l'affichage quotidien) - MAINTENANT SYNCHRONE
         window.getDailyLogs = function(dateKey) {
             const storageKey = `${userId}_${dateKey}`;
             const rawData = localStorage.getItem(storageKey);
@@ -375,41 +410,152 @@
                     console.error("Erreur de parsing des logs locaux:", e);
                 }
             }
-            return logs; // Retourne les logs directement
+            return logs;
         }
         
-        // Gère la récupération initiale des logs et le rendu du tracker
         window.attachLocalListener = function(dateKey) {
-             // 1. Récupérer les logs de manière synchrone
              const logs = window.getDailyLogs(dateKey);
              window.currentLogs = logs;
              
-             // 2. Forcer le re-rendu du tracker avec les logs mis à jour
              const sessionName = getProgramDay(window.state.today);
              const session = window.program.sessions[sessionName];
              if (sessionName !== 'Repos' && document.getElementById('session-tracker')) {
                 document.getElementById('session-tracker').innerHTML = renderSessionTracker(sessionName, session);
+                attachDragListeners(); // Ajouter les écouteurs de Drag & Drop après le rendu
              }
         }
 
-        // --- Logique de rendu ---
+        // --- Logique Drag & Drop ---
+
+        function attachDragListeners() {
+            const draggables = document.querySelectorAll('.draggable-item');
+            const containers = document.querySelectorAll('.sub-exercise-list');
+
+            let dragStartIndex, dragStartBlockId, dragStartSessionId;
+
+            draggables.forEach(draggable => {
+                draggable.addEventListener('dragstart', (e) => {
+                    draggable.classList.add('dragging');
+                    // Stocker les indices et IDs pour la réorganisation
+                    dragStartIndex = parseInt(draggable.dataset.index);
+                    dragStartBlockId = parseInt(draggable.dataset.blockid);
+                    dragStartSessionId = draggable.dataset.sessionid;
+                });
+
+                draggable.addEventListener('dragend', () => {
+                    draggable.classList.remove('dragging');
+                });
+            });
+
+            containers.forEach(container => {
+                container.addEventListener('dragover', (e) => {
+                    e.preventDefault(); // Autoriser le drop
+                    const afterElement = getDragAfterElement(container, e.clientY);
+                    const draggable = document.querySelector('.dragging');
+
+                    if (afterElement == null) {
+                        container.appendChild(draggable);
+                    } else {
+                        container.insertBefore(draggable, afterElement);
+                    }
+                    
+                    // Gestion de la classe drag-over pour l'indication visuelle
+                    container.querySelectorAll('.draggable-item').forEach(item => item.classList.remove('drag-over'));
+                    if(afterElement) {
+                        afterElement.classList.add('drag-over');
+                    } else if (container.lastElementChild) {
+                        // Si on glisse à la fin, on peut colorer le dernier élément
+                        container.lastElementChild.classList.add('drag-over');
+                    }
+                });
+
+                container.addEventListener('dragleave', (e) => {
+                    container.querySelectorAll('.draggable-item').forEach(item => item.classList.remove('drag-over'));
+                });
+
+                container.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    container.querySelectorAll('.draggable-item').forEach(item => item.classList.remove('drag-over'));
+                    
+                    const droppedElement = document.querySelector('.dragging');
+                    if (!droppedElement) return;
+
+                    const droppedIndex = Array.from(container.children).indexOf(droppedElement);
+                    const droppedBlockId = parseInt(container.dataset.blockid);
+                    const droppedSessionId = container.dataset.sessionid;
+
+                    // Si on a bougé l'élément
+                    if (dragStartSessionId === droppedSessionId && 
+                        (dragStartBlockId !== droppedBlockId || dragStartIndex !== droppedIndex)) {
+                        
+                        // Effectuer la réorganisation dans le modèle de données
+                        reorganizeExercise(dragStartSessionId, dragStartBlockId, dragStartIndex, droppedBlockId, droppedIndex);
+                    }
+                });
+            });
+        }
+
+        // Détermine où placer l'élément (avant quel élément)
+        function getDragAfterElement(container, y) {
+            const draggableElements = [...container.querySelectorAll('.draggable-item:not(.dragging)')];
+
+            return draggableElements.reduce((closest, child) => {
+                const rect = child.getBoundingClientRect();
+                const offset = y - rect.top - rect.height / 2;
+                if (offset < 0 && offset > closest.offset) {
+                    return { offset: offset, element: child };
+                } else {
+                    return closest;
+                }
+            }, { offset: Number.NEGATIVE_INFINITY }).element;
+        }
+
+        function reorganizeExercise(sessionId, oldBlockIndex, oldExoIndex, newBlockIndex, newExoIndex) {
+            const session = window.program.sessions[sessionId];
+            
+            if (!session) return;
+
+            // 1. Cloner l'exercice déplacé
+            const movedExercise = session.blocks[oldBlockIndex].subExercises[oldExoIndex];
+
+            // 2. Supprimer l'exercice de son ancienne position
+            session.blocks[oldBlockIndex].subExercises.splice(oldExoIndex, 1);
+
+            // 3. Insérer l'exercice à sa nouvelle position
+            session.blocks[newBlockIndex].subExercises.splice(newExoIndex, 0, movedExercise);
+
+            // 4. Sauvegarder la nouvelle structure
+            saveProgramStructure(window.program);
+
+            // 5. Re-rendre la vue pour mettre à jour les index visuels
+            window.attachLocalListener(window.state.todayDateKey);
+            displayMessage("Exercice déplacé ! La nouvelle organisation est sauvegardée pour les prochaines séances.");
+        }
+
+
+        // --- Vues et Rendu ---
+
+        function initializeApp() {
+            window.program = loadProgramStructure(); // Charger la structure sauvegardée
+            window.appData.isAuthReady = true;
+            console.log("Application initialisée. Sauvegarde de la structure activée.");
+            renderApp();
+        }
+
         window.renderApp = function() {
-            // Initialisation de l'état de l'application
             window.state = {
-                activeTab: 'today', // 'today' ou 'calendar'
-                // Créer une nouvelle instance de Date() pour l'état initial
+                activeTab: 'today',
                 today: new Date(), 
                 todayDateKey: new Date().toISOString().split('T')[0]
             };
             
-            // Rendre le composant principal
             document.getElementById('app').innerHTML = `
                 <div class="container-app p-4">
-                    <h1 class="text-4xl font-extrabold text-center text-cyan-400 my-6 tracking-wide">FITNESS 90 Jours</h1>
+                    <h1 class="text-4xl font-extrabold text-center text-cyan-400 my-6 tracking-wide">FITNESS 90 Jours Modulable</h1>
                     
                     <div id="app-message-container">
-                        <div class="p-3 bg-green-900 border border-green-700 text-green-300 rounded-lg mb-4 text-center text-sm font-medium">
-                            ✅ Sauvegarde **locale** activée (dans votre navigateur). Statut de l'exercice optimisé.
+                        <div class="p-3 bg-slate-700 border border-slate-600 text-slate-300 rounded-lg mb-4 text-center text-sm font-medium">
+                            ✅ Structure et statut sauvegardés localement. Glissez-déposez les exercices pour les réorganiser.
                         </div>
                     </div>
 
@@ -444,10 +590,8 @@
                 }
             }
             
-            renderTodayView(); // Rendre l'onglet par défaut
+            renderTodayView();
         }
-
-        // --- Vues Spécifiques ---
 
         function renderTodayView() {
             const today = window.state.today;
@@ -468,9 +612,11 @@
                             Prenez le temps de récupérer, la progression continue même au repos !
                         </div>
                     ` : `
-                        <p class="text-slate-400 mb-6 mt-4">Cochez les sous-exercices complétés. Chaque bloc représente un super-set/circuit.</p>
+                        <p class="text-slate-400 mb-6 mt-4">
+                            Cochez les sous-exercices complétés. Chaque bloc représente un super-set/circuit.
+                            <br><span class="text-yellow-400 font-semibold">Réorganisez :</span> Glissez-déposez les exercices pour ajuster votre super-set !
+                        </p>
                         <div id="session-tracker" class="scroll-container space-y-6">
-                            <!-- Sera rempli par renderSessionTracker après la récupération des logs -->
                             <div class="flex justify-center items-center h-24">
                                 <span class="loading-ring"></span>
                             </div>
@@ -480,18 +626,15 @@
             `;
             document.getElementById('content-today').innerHTML = htmlContent;
             
-            // Récupérer les logs et attacher l'écouteur local (déclenche le rendu du tracker)
             if (sessionName !== 'Repos') {
                  window.attachLocalListener(window.state.todayDateKey);
             }
         }
 
         function renderSessionTracker(sessionId, session) {
-            // Utilise la nouvelle structure: session.blocks
             if (!session || !session.blocks) return '';
             
             let html = '';
-            // Utilise window.currentLogs qui est mis à jour par attachLocalListener
             const sessionLogs = window.currentLogs && window.currentLogs[sessionId] ? window.currentLogs[sessionId].exercises : {};
 
             session.blocks.forEach((block, blockIndex) => {
@@ -507,29 +650,33 @@
                             </p>
                         </div>
                         
-                        <div class="space-y-4">
+                        <!-- Conteneur Drag & Drop -->
+                        <div class="sub-exercise-list space-y-4" data-sessionid="${sessionId}" data-blockid="${blockIndex}">
                 `;
 
                 // Itération sur les sous-exercices dans le bloc
                 block.subExercises.forEach((subExo, subExoIndex) => {
-                    // Logique de récupération: cherche le statut par nom du sous-exercice
                     const isDone = sessionLogs[subExo.name] ? !!sessionLogs[subExo.name].isDone : false;
-                    
-                    // Le handler utilise le nom du sous-exercice comme clé unique dans le log
                     const onChangeHandler = `window.debouncedToggleDone('${sessionId}', '${subExo.name}', this.checked)`;
                     const imageContainerId = `img-${sessionId}-${blockIndex}-${subExoIndex}`;
                     const placeholderId = `img-placeholder-${sessionId}-${blockIndex}-${subExoIndex}`;
 
-
                     html += `
-                        <div class="pl-2 border-l-4 ${isDone ? 'border-green-500' : 'border-slate-500'} transition duration-300">
+                        <div class="draggable-item relative pl-6 pr-2 py-2 border-l-4 ${isDone ? 'border-green-500' : 'border-slate-500'} transition duration-300 bg-slate-800 rounded-md hover:bg-slate-700/80"
+                            draggable="true"
+                            data-index="${subExoIndex}"
+                            data-blockid="${blockIndex}"
+                            data-sessionid="${sessionId}"
+                        >
+                            <!-- Poignée Drag -->
+                            <span class="drag-handle text-lg">&#x2261;</span>
+
                             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center">
                                 <h4 class="text-lg font-medium ${isDone ? 'text-green-300 line-through' : 'text-white'}">
                                     ${subExoIndex + 1}. ${subExo.name}
                                 </h4>
                                 
                                 <div class="flex items-center space-x-3 mt-2 sm:mt-0">
-                                    <!-- Répétitions/Durée spécifiques au sous-exercice -->
                                     <p class="text-sm text-slate-400 font-medium">
                                         Rép: <span class="font-semibold text-white">${subExo.reps}</span>
                                     </p>
@@ -546,7 +693,7 @@
                                             ${isDone ? 'checked' : ''}
                                             onclick="${onChangeHandler}"
                                             onchange="
-                                                const parentDiv = this.closest('.pl-2');
+                                                const parentDiv = this.closest('.draggable-item');
                                                 parentDiv.classList.toggle('border-green-500', this.checked);
                                                 parentDiv.classList.toggle('border-slate-500', !this.checked);
 
@@ -600,13 +747,11 @@
                 const date = new Date(today);
                 date.setDate(today.getDate() + i);
                 
-                // VÉRIFICATION CRITIQUE: Le jour de la semaine (0 à 6) de la date calculée
-                const dayOfWeek = date.getDay(); 
-                const sessionName = window.program.weeklySchedule[dayOfWeek];
+                const sessionName = getProgramDay(date);
 
                 days.push({
                     date: date,
-                    dayName: dayNames[dayOfWeek],
+                    dayName: dayNames[date.getDay()],
                     session: sessionName,
                     isToday: i === 0
                 });
@@ -614,7 +759,7 @@
 
             let htmlContent = `
                 <div class="bg-slate-800 p-6 rounded-2xl shadow-2xl border border-slate-700">
-                    <h2 class="text-2xl font-bold text-cyan-400 mb-4">Planning Jours + 90</h2>
+                    <h2 class="text-2xl font-bold text-cyan-400 mb-4">Planning Jours + 90 (Début: ${PROGRAM_START_DATE.toLocaleDateString('fr-FR')})</h2>
                     <div class="grid grid-cols-7 gap-1 text-center font-bold text-sm bg-slate-700 p-2 rounded-t-lg sticky top-0 z-10">
                         ${dayNames.map(d => `<div class="text-slate-300">${d}</div>`).join('')}
                     </div>
@@ -635,26 +780,22 @@
         }
 
 
-        // --- Logique d'image Gemini API ---
+        // --- Logique d'image Gemini API (inchangée) ---
 
-        // Masquer/Afficher l'image. Si masquée, elle est effacée. Gère maintenant les URLs d'images.
         window.toggleImage = function(containerId, prompt, imgUrl = '') {
             const container = document.getElementById(containerId);
-            // Le placeholder est le premier enfant div du container
             const placeholder = container.querySelector('div[id^="img-placeholder"]');
 
             if (container.classList.contains('hidden')) {
                 container.classList.remove('hidden');
 
                 if (imgUrl) {
-                    // 1. URL fournie: Afficher l'image directement
                     placeholder.innerHTML = `<img src="${imgUrl}" class="w-full h-auto object-contain max-h-48 rounded-lg" onerror="this.onerror=null; this.src='https://placehold.co/600x400/94a3b8/0f172a?text=Image+non+disponible'; this.closest('div').classList.add('bg-slate-600'); this.closest('div').style.height='12rem';" alt="Illustration de l'exercice par URL">`;
                     placeholder.classList.remove('bg-slate-600'); 
-                    placeholder.style.height = 'auto'; // Ajuste la hauteur si l'image est chargée
+                    placeholder.style.height = 'auto';
                 } else {
-                    // 2. Pas d'URL: Générer l'image via l'API
                     placeholder.innerHTML = `<div class="flex flex-col items-center justify-center h-full"><span class="loading-ring"></span><p class="mt-3 text-slate-400">Génération de l'image...</p></div>`;
-                    placeholder.style.height = '12rem'; // Hauteur par défaut pour le chargement
+                    placeholder.style.height = '12rem';
                     placeholder.classList.add('bg-slate-600');
                     window.generateImage(prompt, placeholder);
                 }
@@ -663,14 +804,13 @@
                 container.classList.add('hidden');
                 placeholder.innerHTML = `<p class="text-slate-400">Cliquez sur 'Voir' pour générer l'image.</p>`;
                 placeholder.classList.add('bg-slate-600');
-                placeholder.style.height = '12rem'; // Reset height
+                placeholder.style.height = '12rem';
             }
         };
 
-
         let isImageGenerating = false;
         const IMAGE_MODEL_URL = 'https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=';
-        const apiKey = ""; // La clé sera fournie par l'environnement Canvas
+        const apiKey = ""; 
 
         window.generateImage = async function(userPrompt, placeholderElement) {
             if (isImageGenerating) {
@@ -678,7 +818,6 @@
                 return;
             }
 
-            // Prompt de base pour un style d'entraînement réaliste
             const fullPrompt = `Une photo haute définition d'un athlète exécutant parfaitement l'exercice: ${userPrompt}. Style de photographie de guide de fitness, clair et sans distorsion, éclairage dramatique de salle de sport.`;
 
             placeholderElement.innerHTML = `<div class="flex flex-col items-center justify-center h-full"><span class="loading-ring"></span><p class="mt-3 text-slate-400">Génération de l'image...</p></div>`;
@@ -691,6 +830,7 @@
 
             const maxRetries = 5;
             let attempt = 0;
+            let result;
 
             while (attempt < maxRetries) {
                 try {
@@ -702,17 +842,16 @@
 
                     if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
                     
-                    const result = await response.json();
+                    result = await response.json();
 
                     if (result.predictions && result.predictions.length > 0 && result.predictions[0].bytesBase64Encoded) {
                         const base64Data = result.predictions[0].bytesBase64Encoded;
                         const imageUrl = `data:image/png;base64,${base64Data}`;
-                        // Remplacer le placeholder par l'image
                         placeholderElement.innerHTML = `<img src="${imageUrl}" class="w-full h-full object-contain rounded-lg" alt="Illustration de l'exercice">`;
-                        // Ajuster le fond du conteneur parent pour qu'il soit transparent et laisser l'image s'afficher
                         placeholderElement.classList.remove('bg-slate-600'); 
-                        placeholderElement.style.height = 'auto'; // Ajuste la hauteur
-                        return; // Succès
+                        placeholderElement.style.height = 'auto';
+                        isImageGenerating = false;
+                        return;
                     } else {
                         throw new Error('Aucune donnée d\'image valide reçue.');
                     }
@@ -720,16 +859,13 @@
                     console.error(`Erreur d'API (Tentative ${attempt + 1}):`, error);
                     attempt++;
                     if (attempt < maxRetries) {
-                        const delay = Math.pow(2, attempt) * 1000; // Backoff exponentiel
+                        const delay = Math.pow(2, attempt) * 1000;
                         placeholderElement.innerHTML = `<div class="flex flex-col items-center justify-center h-full"><span class="loading-ring"></span><p class="mt-3 text-red-400">Erreur, nouvelle tentative dans ${delay / 1000}s...</p></div>`;
                         await new Promise(resolve => setTimeout(resolve, delay));
                     } else {
                         placeholderElement.innerHTML = `<p class="text-red-400">Erreur de génération d'image après plusieurs tentatives. Veuillez réessayer plus tard.</p>`;
-                        return; // Échec
-                    }
-                } finally {
-                    if (attempt >= maxRetries || (result && result.predictions && result.predictions.length > 0)) {
                         isImageGenerating = false;
+                        return;
                     }
                 }
             }
